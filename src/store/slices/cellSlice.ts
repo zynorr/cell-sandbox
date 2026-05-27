@@ -43,7 +43,9 @@ export const createCellSlice: StateCreator<StoreState, [], [], CellSlice> = (set
       txOutputs: s.txOutputs.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)),
       selectedIndex:
         s.selectedIndex === index
-          ? Math.min(index, s.cells.length - 2)
+          ? s.cells.length - 1 <= 0
+            ? null
+            : Math.min(index, s.cells.length - 2)
           : s.selectedIndex === null
             ? null
             : s.selectedIndex > index
@@ -90,7 +92,7 @@ export const createCellSlice: StateCreator<StoreState, [], [], CellSlice> = (set
       wallet: { ...defaultWallet },
     }),
 
-  restoreCells: (cells: CellState[]) => set({ cells, selectedIndex: 0 }),
+  restoreCells: (cells: CellState[]) => set({ cells, selectedIndex: 0, txInputs: [], txOutputs: [] }),
 
   exportAsCode: () => generateExportCode(get().cells),
 

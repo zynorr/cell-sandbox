@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { serialiseCells, deserializeCells, buildShareUrl, copyToClipboard } from '../share'
+import { serializeCells, deserializeCells, buildShareUrl, copyToClipboard } from '../share'
 import type { CellState } from '@/types'
 
 const mockCells: CellState[] = [
@@ -23,9 +23,9 @@ const mockCells: CellState[] = [
   },
 ]
 
-describe('serialiseCells', () => {
+describe('serializeCells', () => {
   it('should encode cells as a base64 string with the cs= prefix', () => {
-    const result = serialiseCells(mockCells)
+    const result = serializeCells(mockCells)
     expect(result).toMatch(/^cs=/)
     const encoded = result.slice(3)
     expect(() => atob(encoded)).not.toThrow()
@@ -34,7 +34,7 @@ describe('serialiseCells', () => {
   it('should return empty string for invalid input gracefully', () => {
     const circular: Record<string, unknown> = { a: 1 }
     circular.self = circular
-    const result = serialiseCells(circular as unknown as CellState[])
+    const result = serializeCells(circular as unknown as CellState[])
     expect(result).toBe('')
   })
 })
@@ -46,7 +46,7 @@ describe('deserializeCells', () => {
   })
 
   it('should round-trip cells through serialise/deserialize', () => {
-    const serialized = serialiseCells(mockCells)
+    const serialized = serializeCells(mockCells)
     const search = `?${serialized}`
     const result = deserializeCells(search)
     expect(result).toEqual(mockCells)

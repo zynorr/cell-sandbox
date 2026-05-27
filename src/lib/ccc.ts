@@ -26,10 +26,3 @@ export function formatCapacity(capacity: string | bigint | number): string {
   return `${ckb.toFixed(2)} CKB`
 }
 
-export function parseOutpoint(input: string): { txHash: string; index: number } | null {
-  const parts = input.split(':')
-  if (parts.length !== 2) return null
-  const index = parseInt(parts[1])
-  if (isNaN(index)) return null
-  return { txHash: parts[0], index }
-}

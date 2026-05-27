@@ -3,7 +3,7 @@ import { cellStateArraySchema } from './schemas'
 
 const KEY = 'cs'
 
-export function serialiseCells(cells: CellState[]): string {
+export function serializeCells(cells: CellState[]): string {
   try {
     const json = JSON.stringify(cells)
     const encoded = typeof btoa !== 'undefined'
@@ -39,7 +39,7 @@ export function deserializeCells(search: string): CellState[] | null {
 }
 
 export function buildShareUrl(cells: CellState[]): string {
-  const serialized = serialiseCells(cells)
+  const serialized = serializeCells(cells)
   if (!serialized) return window.location.href.split('?')[0]
   const base = window.location.href.split('?')[0]
   return `${base}?${serialized}`

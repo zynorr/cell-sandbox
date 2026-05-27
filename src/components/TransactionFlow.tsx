@@ -102,7 +102,6 @@ export function TransactionFlow() {
   const cells = useSandbox((s) => s.cells)
   const txInputs = useSandbox((s) => s.txInputs)
   const txOutputs = useSandbox((s) => s.txOutputs)
-  const viewMode = useSandbox((s) => s.viewMode)
 
   const totalIn = useMemo(
     () => txInputs.reduce((sum, i) => sum + BigInt(cells[i]?.capacity ?? 0), BigInt(0)),
@@ -174,8 +173,6 @@ export function TransactionFlow() {
     })
     return result
   }, [txInputs, txOutputs])
-
-  if (viewMode !== 'flow') return null
 
   return (
     <div>
