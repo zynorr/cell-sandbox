@@ -164,3 +164,15 @@ The test suite covers:
 
 ---
 
+## 📚 Docs
+
+| Document | Description |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Data flow, store design, component tree, key decisions |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Dev setup, workflow, testing, troubleshooting |
+
+See also [`CONTRIBUTING.md`](CONTRIBUTING.md) for how to contribute.
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE) for details.
