@@ -1,33 +1,22 @@
-# Cell Sandbox 🧱
+# Cell Sandbox 
 
 > A visual playground for the **Nervos CKB Cell Model** — design cells, build transactions, and broadcast to testnet/mainnet, all from your browser.
 
-<div align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss)](https://tailwindcss.com)
-[![Zustand](https://img.shields.io/badge/State-Zustand-orange)](https://github.com/pmndrs/zustand)
-[![CCC](https://img.shields.io/badge/CKB-CCC-3DDC84)](https://github.com/ckb-devrel/ccc)
-[![Vercel](https://img.shields.io/badge/Deployed-Vercel-000?logo=vercel)](https://cell-sandbox-seven.vercel.app)
-
-**🔗 [Live Demo](https://cell-sandbox-seven.vercel.app) · [GitHub](https://github.com/zynorr/cell-sandbox)**
-
-</div>
+**🔗 [Live Demo](https://cell-sandbox-seven.vercel.app) ·
 
 ---
 
-## ✨ Features
+##  Features
 
-### 🧱 Visual Cell Designer
+###  Visual Cell Designer
 Design CKB cells with an intuitive form-based editor:
 - **Capacity** — set CKB amounts with automatic shannon conversion
 - **Lock Script** — pick from known scripts (Secp256k1, Omnilock, Always Success) or paste custom code hashes
 - **Type Script** — optionally attach type scripts (xUDT, Spore, DAO, etc.)
 - **Data** — switch between hex, text, and number modes; data auto-interprets in preview
 
-### 📦 Cell Templates
+###  Cell Templates
 Pre-built cell configurations covering the most common CKB patterns:
 | Template | Category | Description |
 |---|---|---|
@@ -38,14 +27,14 @@ Pre-built cell configurations covering the most common CKB patterns:
 | **Omnilock Account** | `auth` | ETH/BTC/Doge compatible lock |
 | **Always Success** | `demo` | No-validation test cell (sendable) |
 
-### 🔀 Transaction Flow
+###  Transaction Flow
 Visual transaction builder powered by [React Flow](https://reactflow.dev):
 - Drag-and-drop assignment of cells as **inputs** and **outputs**
 - Real-time **capacity balance** tracking
 - **Fee estimation** for transaction viability
 - **Cell deps** auto-populated from script selections
 
-### 🔌 Wallet & On-Chain
+###  Wallet & On-Chain
 Full end-to-end on-chain interaction:
 - **JoyID** — connect with passkey-based wallet (WebAuthn)
 - **Faucet** — claim 10,000 testnet CKB with one click
@@ -53,14 +42,14 @@ Full end-to-end on-chain interaction:
 - **Load from Chain** — fetch real cells by outpoint `txHash:index`
 - **Network Switch** — toggle between Pudge testnet and mainnet with one click
 
-### 📤 Export & Share
+###  Export & Share
 - **Code Export** — generate CCC-compatible TypeScript from your cell designs
 - **Share URLs** — encode entire cell configurations into shareable links
 - **Data Preview** — auto-parses xUDT amounts, DAO deposit blocks, and Spore content
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 pnpm install
@@ -80,7 +69,7 @@ Open **[http://localhost:3000](http://localhost:3000)**.
 
 ---
 
-## 🏗 Project Structure
+##  Project Structure
 
 ```
 src/
@@ -122,7 +111,7 @@ src/
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -138,7 +127,7 @@ src/
 
 ---
 
-## 📜 Scripts
+## Scripts
 
 | Command | Description |
 |---|---|
@@ -151,7 +140,7 @@ src/
 
 ---
 
-## 🧪 Testing
+##  Testing
 
 ```bash
 pnpm test          # Run all tests
@@ -166,9 +155,6 @@ The test suite covers:
 
 ---
 
-## 🤝 Spark Program
-
-This project is built as part of the **CKB Spark Program** — an initiative to grow the Nervos CKB developer ecosystem by funding and supporting developer tools, infrastructure, and educational resources.
 
 **Why Cell Sandbox?**
 - Lowers the barrier to entry for CKB development
@@ -178,6 +164,3 @@ This project is built as part of the **CKB Spark Program** — an initiative to 
 
 ---
 
-## 📄 License
-
-MIT — see [LICENSE](LICENSE) for details.
