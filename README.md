@@ -3,7 +3,7 @@
 > A visual playground for the **Nervos CKB Cell Model** — design cells, build transactions, and broadcast to testnet/mainnet, all from your browser.
 
 
-**🔗 [Live Demo](https://cell-sandbox-seven.vercel.app) ·
+**🔗 [Live Demo]((https://cell-sandbox-m.vercel.app/)) ·
 
 ---
 
