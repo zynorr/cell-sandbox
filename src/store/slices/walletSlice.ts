@@ -5,11 +5,32 @@ import { getClient } from '@/lib/ccc'
 import { getScriptCellDep } from '@/lib/script'
 import { ccc } from '@ckb-ccc/ccc'
 
+const emptyBalance: WalletState['balance'] = { capacity: '0', occupied: '0', free: '0' }
+
 function getExplorerUrl(network: string, txHash: string): string {
   const base = network === 'mainnet'
     ? 'https://explorer.nervos.org'
     : 'https://pudge.explorer.nervos.org'
   return `${base}/transaction/${txHash}`
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
+function toCccScript(script: ScriptState): ccc.Script {
+  return ccc.Script.from({
+    codeHash: ccc.hexFrom(script.codeHash),
+    hashType: script.hashType as ccc.HashType,
+    args: ccc.hexFrom(script.args || '0x'),
+  })
+}
+
+async function getSpendableBalance(lockScript: ScriptState, network: 'testnet' | 'mainnet'): Promise<WalletState['balance']> {
+  const client = getClient(network)
+  const capacity = await client.getBalanceSingle(toCccScript(lockScript))
+  const balance = capacity.toString()
+  return { capacity: balance, occupied: '0', free: balance }
 }
 
 const signersByNetwork: Map<string, ccc.Signer> = new Map()
@@ -35,12 +56,14 @@ async function getCkbSigner(network: string): Promise<ccc.Signer> {
 export const defaultWallet: WalletState = {
   connected: false,
   address: '',
-  balance: { capacity: '0', occupied: '0', free: '0' },
+  balance: emptyBalance,
   isConnecting: false,
+  isRefreshingBalance: false,
   isSending: false,
   lastTxHash: null,
   explorerUrl: null,
   sendError: null,
+  balanceError: null,
 }
 
 export interface WalletSlice {
@@ -49,6 +72,7 @@ export interface WalletSlice {
 
   connectWallet: () => Promise<void>
   disconnectWallet: () => void
+  refreshWalletBalance: () => Promise<void>
   sendTransaction: () => Promise<void>
   setShowConfirmDialog: (v: boolean) => void
 }
@@ -62,7 +86,7 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
   connectWallet: async () => {
     const state = get()
     if (state.wallet.isConnecting) return
-    set({ wallet: { ...state.wallet, isConnecting: true, sendError: null } })
+    set({ wallet: { ...state.wallet, isConnecting: true, sendError: null, balanceError: null } })
 
     try {
       const ckbSigner = await getCkbSigner(state.network)
@@ -76,23 +100,26 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
         wallet: {
           connected: true,
           address: addressStr,
-          balance: { capacity: '0', occupied: '0', free: '0' },
+          balance: emptyBalance,
           isConnecting: false,
+          isRefreshingBalance: false,
           isSending: false,
           lastTxHash: null,
           explorerUrl: null,
           sendError: null,
+          balanceError: null,
           lockScript: addressScript
             ? { codeHash: addressScript.codeHash, hashType: addressScript.hashType as ScriptState['hashType'], args: addressScript.args }
             : undefined,
         },
       })
+      await get().refreshWalletBalance()
     } catch (e) {
       set({
         wallet: {
           ...get().wallet,
           isConnecting: false,
-          sendError: e instanceof Error ? e.message : 'Failed to connect wallet',
+          sendError: getErrorMessage(e, 'Failed to connect wallet'),
         },
       })
     }
@@ -101,6 +128,50 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
   disconnectWallet: () => {
     signersByNetwork.clear()
     set({ wallet: { ...defaultWallet } })
+  },
+
+  refreshWalletBalance: async () => {
+    const state = get()
+    if (!state.wallet.connected) return
+
+    if (!state.wallet.lockScript) {
+      set({
+        wallet: {
+          ...state.wallet,
+          isRefreshingBalance: false,
+          balanceError: 'Wallet lock script is unavailable.',
+        },
+      })
+      return
+    }
+
+    set({
+      wallet: {
+        ...state.wallet,
+        isRefreshingBalance: true,
+        balanceError: null,
+      },
+    })
+
+    try {
+      const balance = await getSpendableBalance(state.wallet.lockScript, state.network)
+      set({
+        wallet: {
+          ...get().wallet,
+          balance,
+          isRefreshingBalance: false,
+          balanceError: null,
+        },
+      })
+    } catch (e) {
+      set({
+        wallet: {
+          ...get().wallet,
+          isRefreshingBalance: false,
+          balanceError: getErrorMessage(e, 'Could not refresh wallet balance'),
+        },
+      })
+    }
   },
 
   sendTransaction: async () => {
@@ -179,6 +250,7 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
           sendError: null,
         },
       })
+      await get().refreshWalletBalance()
     } catch (e) {
       const raw = e instanceof Error ? e.message : 'Transaction failed'
       let friendly = raw

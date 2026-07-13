@@ -7,12 +7,14 @@ export interface UISlice {
   isLoading: boolean
   error: string | null
   showTemplates: boolean
+  showGuide: boolean
   viewMode: ViewMode
 
   setViewMode: (m: ViewMode) => void
   setNetwork: (n: NetworkMode) => void
   clearError: () => void
   setShowTemplates: (v: boolean) => void
+  setShowGuide: (v: boolean) => void
 }
 
 export const createUISlice: StateCreator<StoreState, [], [], UISlice> = (set) => ({
@@ -20,10 +22,12 @@ export const createUISlice: StateCreator<StoreState, [], [], UISlice> = (set) =>
   isLoading: false,
   error: null,
   showTemplates: false,
-  viewMode: 'builder',
+  showGuide: false,
+  viewMode: 'learn',
 
   setViewMode: (viewMode) => set({ viewMode }),
   setNetwork: (network) => set({ network }),
   clearError: () => set({ error: null }),
   setShowTemplates: (showTemplates) => set({ showTemplates }),
+  setShowGuide: (showGuide) => set({ showGuide }),
 })

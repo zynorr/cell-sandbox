@@ -27,6 +27,14 @@ export const cellStateArraySchema = z.array(cellStateSchema)
 // ── Outpoint Schema (for txHash:index input) ──
 
 const hexRegex = /^0x[0-9a-fA-F]+$/
+const txHashRegex = /^0x[0-9a-fA-F]{64}$/
+
+export const txHashSchema = z
+  .string()
+  .trim()
+  .refine((value) => txHashRegex.test(value), {
+    message: 'Transaction hash must start with 0x and contain 32 bytes of hex.',
+  })
 
 export const outpointSchema = z.string().transform((val, ctx) => {
   const parts = val.split(':')
@@ -53,17 +61,12 @@ export const faucetClaimRequestSchema = z.object({
   address: z.string().min(1, 'Address required'),
 })
 
-export const faucetClaimResponseSchema = z.object({
-  claim_event: z
-    .object({
-      id: z.number().optional(),
-      address_hash: z.string(),
-      amount: z.union([z.string(), z.number()]),
-      status: z.string().optional(),
-    })
-    .optional(),
-  error: z.string().optional(),
-})
+const faucetErrorSchema = z.union([
+  z.string(),
+  z.array(z.string()),
+  z.array(z.record(z.string(), z.unknown())),
+  z.record(z.string(), z.unknown()),
+])
 
 const claimEventAttributesSchema = z.object({
   addressHash: z.string(),
@@ -71,13 +74,28 @@ const claimEventAttributesSchema = z.object({
   status: z.string(),
   txStatus: z.string().nullable(),
   txHash: z.string().nullable(),
-  timestamp: z.string(),
+  timestamp: z.union([z.string(), z.number()]),
 })
 
 const claimEventItemSchema = z.object({
   id: z.union([z.string(), z.number()]),
   attributes: claimEventAttributesSchema,
 })
+
+export const faucetClaimResponseSchema = z.object({
+  data: claimEventItemSchema.optional(),
+  claim_event: z
+    .object({
+      id: z.union([z.string(), z.number()]).optional(),
+      address_hash: z.string(),
+      amount: z.union([z.string(), z.number()]),
+      status: z.string().optional(),
+      tx_hash: z.string().nullable().optional(),
+    })
+    .optional(),
+  error: faucetErrorSchema.optional(),
+  errors: faucetErrorSchema.optional(),
+}).refine((value) => Boolean(value.data || value.claim_event || value.error || value.errors))
 
 export const faucetStatusResponseSchema = z.object({
   claimEvents: z
