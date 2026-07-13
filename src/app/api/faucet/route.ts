@@ -3,6 +3,78 @@ import { faucetClaimRequestSchema, faucetClaimResponseSchema, faucetStatusRespon
 
 const BASE = 'https://faucet-api.nervos.org'
 
+interface NormalizedFaucetClaim {
+  id?: string | number
+  address: string
+  amount: string
+  status?: string
+  txStatus?: string | null
+  txHash?: string | null
+  timestamp?: string | number
+}
+
+function stringifyFaucetError(value: unknown): string {
+  if (!value) return 'Faucet request failed'
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.map((item) => stringifyFaucetError(item)).join(', ')
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    for (const key of ['detail', 'message', 'title']) {
+      if (typeof record[key] === 'string') return record[key]
+    }
+    const textValues = Object.values(record).filter((item): item is string => typeof item === 'string')
+    if (textValues.length > 0) return textValues.join(', ')
+    return JSON.stringify(value)
+  }
+  return String(value)
+}
+
+function normalizeClaim(result: {
+  data?: {
+    id: string | number
+    attributes: {
+      addressHash: string
+      capacity: string
+      status: string
+      txStatus: string | null
+      txHash: string | null
+      timestamp: string | number
+    }
+  }
+  claim_event?: {
+    id?: string | number
+    address_hash: string
+    amount: string | number
+    status?: string
+    tx_hash?: string | null
+  }
+}): NormalizedFaucetClaim | null {
+  if (result.data?.attributes) {
+    const attrs = result.data.attributes
+    return {
+      id: result.data.id,
+      address: attrs.addressHash,
+      amount: attrs.capacity,
+      status: attrs.status,
+      txStatus: attrs.txStatus,
+      txHash: attrs.txHash,
+      timestamp: attrs.timestamp,
+    }
+  }
+
+  if (result.claim_event) {
+    return {
+      id: result.claim_event.id,
+      address: result.claim_event.address_hash,
+      amount: String(result.claim_event.amount),
+      status: result.claim_event.status,
+      txHash: result.claim_event.tx_hash,
+    }
+  }
+
+  return null
+}
+
 async function getFaucetCookies(): Promise<{ csrf: string; cookie: string }> {
   const res = await fetch(BASE, {
     headers: { 'User-Agent': 'CellSandbox/1.0' },
@@ -61,7 +133,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faucet returned unexpected response' }, { status: 502 })
     }
 
-    return NextResponse.json(validatedClaim.data as Record<string, unknown>)
+    if (!claimRes.ok || validatedClaim.data.error || validatedClaim.data.errors) {
+      return NextResponse.json(
+        { ok: false, error: stringifyFaucetError(validatedClaim.data.error ?? validatedClaim.data.errors) },
+        { status: claimRes.ok ? 502 : claimRes.status }
+      )
+    }
+
+    const claim = normalizeClaim(validatedClaim.data)
+    if (!claim) {
+      return NextResponse.json({ ok: false, error: 'Faucet returned no claim details' }, { status: 502 })
+    }
+
+    return NextResponse.json({ ok: true, claim })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Faucet request failed' },

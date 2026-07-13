@@ -21,6 +21,7 @@ import { formatCapacity } from '@/lib/ccc'
 function TxNode({ data }: NodeProps) {
   const totalIn = Number(data.totalIn ?? 0)
   const totalOut = Number(data.totalOut ?? 0)
+  const walletInputsAuto = Boolean(data.walletInputsAuto)
   const balance = totalIn - totalOut
   const fee = balance > 0 ? Math.min(balance, 0.001 * 1e8) : 0
   const change = balance - fee
@@ -31,31 +32,33 @@ function TxNode({ data }: NodeProps) {
         Transaction
       </div>
       <div className="space-y-1.5 text-xs">
-        <div className="flex justify-between text-stone-300">
-          <span>Inputs</span>
-          <span className="font-mono">{formatCapacity(totalIn)}</span>
-        </div>
-        <div className="flex justify-between text-stone-300">
-          <span>Outputs</span>
-          <span className="font-mono">{formatCapacity(totalOut)}</span>
-        </div>
-        <div className="border-t border-stone-700/50 my-1.5" />
-        <div className="flex justify-between text-stone-300">
-          <span>Balance</span>
-          <span className={`font-mono ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {balance >= 0 ? '+' : ''}{formatCapacity(balance)}
+        <div className="flex items-center justify-between gap-4 text-stone-300">
+          <span className="shrink-0">Inputs</span>
+          <span className={`text-right font-mono ${walletInputsAuto ? 'text-blue-300' : ''}`}>
+            {walletInputsAuto ? 'wallet auto' : formatCapacity(totalIn)}
           </span>
         </div>
-        {balance > 0 && (
+        <div className="flex items-center justify-between gap-4 text-stone-300">
+          <span className="shrink-0">Outputs</span>
+          <span className="text-right font-mono">{formatCapacity(totalOut)}</span>
+        </div>
+        <div className="border-t border-stone-700/50 my-1.5" />
+        <div className="flex items-center justify-between gap-4 text-stone-300">
+          <span className="shrink-0">Balance</span>
+          <span className={`text-right font-mono ${walletInputsAuto ? 'text-blue-300' : balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {walletInputsAuto ? 'funded at send' : `${balance >= 0 ? '+' : ''}${formatCapacity(balance)}`}
+          </span>
+        </div>
+        {!walletInputsAuto && balance > 0 && (
           <>
-            <div className="flex justify-between text-stone-300">
-              <span>Fee (est.)</span>
-              <span className="font-mono text-amber-400/80">{formatCapacity(fee)}</span>
+            <div className="flex items-center justify-between gap-4 text-stone-300">
+              <span className="shrink-0">Fee (est.)</span>
+              <span className="text-right font-mono text-amber-400/80">{formatCapacity(fee)}</span>
             </div>
             {change > 0 && (
-              <div className="flex justify-between text-stone-300">
-                <span>Change</span>
-                <span className="font-mono text-blue-400">{formatCapacity(change)}</span>
+              <div className="flex items-center justify-between gap-4 text-stone-300">
+                <span className="shrink-0">Change</span>
+                <span className="text-right font-mono text-blue-400">{formatCapacity(change)}</span>
               </div>
             )}
           </>
@@ -102,6 +105,7 @@ export function TransactionFlow() {
   const cells = useSandbox((s) => s.cells)
   const txInputs = useSandbox((s) => s.txInputs)
   const txOutputs = useSandbox((s) => s.txOutputs)
+  const hasOutputs = txOutputs.length > 0
 
   const totalIn = useMemo(
     () => txInputs.reduce((sum, i) => sum + BigInt(cells[i]?.capacity ?? 0), BigInt(0)),
@@ -120,7 +124,11 @@ export function TransactionFlow() {
       id: 'tx',
       type: 'tx',
       position: { x: 280, y: Math.max(getN(txInputs.length), getN(txOutputs.length)) / 2 - 40 },
-      data: { totalIn: totalIn.toString(), totalOut: totalOut.toString() },
+      data: {
+        totalIn: totalIn.toString(),
+        totalOut: totalOut.toString(),
+        walletInputsAuto: txInputs.length === 0 && txOutputs.length > 0,
+      },
       draggable: false,
     })
 
@@ -176,15 +184,42 @@ export function TransactionFlow() {
 
   return (
     <div>
-      <div className="flex items-center justify-between px-4 sm:px-6 py-2 border-b border-stone-800/80 bg-stone-950/20">
-        <p className="text-xs text-stone-500">Assign cells as inputs/outputs from the cell builder</p>
-        <div className="flex gap-3 text-xs font-mono shrink-0">
-          <span className="text-blue-400">{txInputs.length} input{txInputs.length !== 1 && 's'}</span>
-          <span className="text-emerald-400">{txOutputs.length} output{txOutputs.length !== 1 && 's'}</span>
+      <div className="border-b border-stone-800/80 bg-stone-950/20 px-4 py-3 sm:px-6">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Build Tx Flow</p>
+            <p className="mt-1 text-xs leading-5 text-stone-400">
+              {hasOutputs
+                ? 'Selected output Cells will be created on-chain when the wallet signs and sends this transaction.'
+                : 'A designed Cell is still a local draft. Click the green Output button under a Cell to make it a transaction output.'}
+            </p>
+          </div>
+          <div className="grid gap-2 text-xs sm:grid-cols-3 xl:min-w-[34rem]">
+            <div className="rounded-lg border border-stone-800 bg-stone-950/50 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wider text-stone-500">Draft Cells</p>
+              <p className="mt-1 font-mono text-stone-300">{cells.length}</p>
+              <p className="mt-1 text-[10px] leading-4 text-stone-600">Local designs only</p>
+            </div>
+            <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/10 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wider text-emerald-500/80">Tx Outputs</p>
+              <p className="mt-1 font-mono text-emerald-300">{txOutputs.length}</p>
+              <p className="mt-1 text-[10px] leading-4 text-stone-600">New Cells to create</p>
+            </div>
+            <div className="rounded-lg border border-blue-900/40 bg-blue-950/10 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wider text-blue-500/80">Wallet Inputs</p>
+              <p className="mt-1 font-mono text-blue-300">{txInputs.length > 0 ? txInputs.length : 'auto'}</p>
+              <p className="mt-1 text-[10px] leading-4 text-stone-600">Auto-funded at send</p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500">
+          <span>Use <span className="text-emerald-300">Output</span> for new Cells.</span>
+          <span>Use <span className="text-blue-300">Input</span> only when modeling live Cells being consumed.</span>
         </div>
       </div>
-      <div style={{ height: 400 }}>
+      <div className="h-[260px] border-b border-stone-800/80 sm:h-[300px] lg:h-[320px] xl:h-[340px]">
         <ReactFlow
+          key={`${txInputs.join(',')}|${txOutputs.join(',')}`}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -192,11 +227,17 @@ export function TransactionFlow() {
           fitViewOptions={{ padding: 0.3 }}
           minZoom={0.5}
           maxZoom={2}
+          preventScrolling={false}
           panOnDrag={false}
           zoomOnScroll={false}
+          zoomOnPinch={false}
+          zoomOnDoubleClick={false}
           nodesDraggable={false}
           nodesConnectable={false}
+          nodesFocusable={false}
+          edgesFocusable={false}
           elementsSelectable={false}
+          disableKeyboardA11y
         >
           <Background color="#292524" gap={20} size={1} />
           <Controls

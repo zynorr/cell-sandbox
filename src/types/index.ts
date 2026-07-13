@@ -12,10 +12,12 @@ export interface WalletState {
   address: string
   balance: { capacity: string; occupied: string; free: string }
   isConnecting: boolean
+  isRefreshingBalance: boolean
   isSending: boolean
   lastTxHash: string | null
   explorerUrl: string | null
   sendError: string | null
+  balanceError: string | null
   lockScript?: ScriptState
 }
 
@@ -48,4 +50,4 @@ export interface TransactionFlow {
 
 export type NetworkMode = 'testnet' | 'mainnet'
 
-export type ViewMode = 'builder' | 'flow'
+export type ViewMode = 'learn' | 'design' | 'inspect' | 'build'

@@ -4,6 +4,8 @@ import { useSandbox } from '@/store/sandbox'
 import { ScriptSelector } from './ScriptSelector'
 import { DataEditor } from './DataEditor'
 import { DataPreview } from './DataPreview'
+import { estimateFreeCapacity, estimateOccupiedBytes, estimateOccupiedCapacity } from '@/lib/cellMetrics'
+import { formatCapacity } from '@/lib/ccc'
 
 export function CellEditor() {
   const cells = useSandbox((s) => s.cells)
@@ -23,6 +25,9 @@ export function CellEditor() {
   }
 
   const cell = cells[selectedIndex]
+  const occupiedBytes = estimateOccupiedBytes(cell)
+  const occupiedCapacity = estimateOccupiedCapacity(cell)
+  const freeCapacity = estimateFreeCapacity(cell)
 
   return (
     <div className="space-y-4 p-4">
@@ -50,10 +55,31 @@ export function CellEditor() {
         <p className="text-[11px] text-stone-500 font-mono">
           {Number(cell.capacity) / 1e8} CKB
         </p>
+        <p className="text-[11px] leading-4 text-stone-600">
+          Capacity is the Cell&apos;s CKB amount and storage limit. It must cover the occupied bytes of lock, type, and data.
+        </p>
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-stone-800 bg-stone-950/50 p-2 text-[11px]">
+          <div>
+            <p className="text-stone-600">Est. occupied</p>
+            <p className="font-mono text-stone-300">{formatCapacity(occupiedCapacity)}</p>
+          </div>
+          <div>
+            <p className="text-stone-600">Est. free</p>
+            <p className={`font-mono ${freeCapacity >= BigInt(0) ? 'text-emerald-300' : 'text-red-300'}`}>
+              {formatCapacity(freeCapacity)}
+            </p>
+          </div>
+          <div className="col-span-2 text-stone-600">
+            Estimated occupied size: <span className="font-mono text-stone-400">{occupiedBytes} bytes</span>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-stone-400">Lock Script</label>
+        <p className="text-[11px] leading-4 text-stone-600">
+          Ownership rule. The lock script decides when this Cell can be spent as an input.
+        </p>
         <ScriptSelector
           script={cell.lock}
           onChange={(lock) => updateCell(selectedIndex, { lock })}
@@ -81,15 +107,28 @@ export function CellEditor() {
           </button>
         </div>
         {cell.type && (
-          <ScriptSelector
-            script={cell.type}
-            onChange={(type) => updateCell(selectedIndex, { type })}
-          />
+          <>
+            <p className="text-[11px] leading-4 text-stone-600">
+              Optional state-transition rule for tokens, DAO, NFTs, or app-specific Cells.
+            </p>
+            <ScriptSelector
+              script={cell.type}
+              onChange={(type) => updateCell(selectedIndex, { type })}
+            />
+          </>
+        )}
+        {!cell.type && (
+          <p className="text-[11px] leading-4 text-stone-600">
+            Without a type script, this Cell has ownership and data but no extra state-transition rule.
+          </p>
         )}
       </div>
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-stone-400">Output Data</label>
+        <p className="text-[11px] leading-4 text-stone-600">
+          Arbitrary bytes stored in the Cell. The preview below interprets common token, DAO, and Spore patterns.
+        </p>
         <DataEditor
           value={cell.data}
           mode={cell.dataMode}

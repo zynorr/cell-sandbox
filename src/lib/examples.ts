@@ -1,0 +1,1 @@
+export const SAMPLE_PUDGE_TX_HASH = '0xcfad00f9954110b0fc28f850c8c8b7bc7191fd276bdcb43ba1fbff3d8f3b1507'

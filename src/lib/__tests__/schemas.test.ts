@@ -104,6 +104,23 @@ describe('faucetClaimResponseSchema', () => {
     expect(result.success).toBe(true)
   })
 
+  it('accepts JSON API claim response', () => {
+    const result = faucetClaimResponseSchema.safeParse({
+      data: {
+        id: '123',
+        attributes: {
+          addressHash: 'ckt1q...',
+          capacity: '10000.0',
+          status: 'pending',
+          txStatus: null,
+          txHash: null,
+          timestamp: 1783899297,
+        },
+      },
+    })
+    expect(result.success).toBe(true)
+  })
+
   it('accepts minimal successful response', () => {
     const result = faucetClaimResponseSchema.safeParse({
       claim_event: { address_hash: 'ckt1q...', amount: '10000' },
@@ -116,9 +133,22 @@ describe('faucetClaimResponseSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('accepts shape with unknown keys (stripped by Zod)', () => {
+  it('accepts JSON API validation errors', () => {
+    const result = faucetClaimResponseSchema.safeParse({
+      errors: [
+        {
+          status: 422,
+          title: 'Unprocessable Entity',
+          detail: 'Address is invalid.',
+        },
+      ],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects shape with unknown keys only', () => {
     const result = faucetClaimResponseSchema.safeParse({ random: 'data' })
-    expect(result.success).toBe(true) // both claim_event and error are optional; extra keys stripped
+    expect(result.success).toBe(false)
   })
 })
 
@@ -135,7 +165,7 @@ describe('faucetStatusResponseSchema', () => {
               status: 'pending',
               txStatus: null,
               txHash: null,
-              timestamp: '2024-01-01T00:00:00Z',
+              timestamp: 1783899297,
             },
           },
         ],
