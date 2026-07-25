@@ -19,7 +19,7 @@ export function StartHerePanel() {
   }
 
   return (
-    <section className="rounded-lg border border-stone-800 bg-stone-950/50 p-4">
+    <section className="min-w-0 rounded-lg border border-stone-800 bg-stone-950/50 p-4">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Start Here</p>
       <div className="mt-3 space-y-2">
         <button
@@ -41,7 +41,7 @@ export function StartHerePanel() {
           className="w-full rounded-lg border border-stone-700 bg-stone-900 px-3 py-2 text-left text-xs font-medium text-stone-200 transition-colors hover:border-amber-700/60 hover:bg-amber-950/20"
         >
           3. Inspect a sample transaction
-          <span className="mt-1 block font-normal leading-5 text-stone-500">Use the sample transaction to compare live input Cells with new output Cells.</span>
+          <span className="mt-1 block font-normal leading-5 text-stone-500">Compare the Cells referenced by its inputs with the new output Cells it creates.</span>
         </button>
       </div>
       <button

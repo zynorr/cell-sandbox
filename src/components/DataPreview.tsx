@@ -1,39 +1,44 @@
 'use client'
 
 import type { ScriptState } from '@/types'
+import { formatCapacityExact } from '@/lib/ccc'
 import { KNOWN_SCRIPTS } from '@/lib/script'
 
 function hexToBytes(hex: string): Uint8Array {
-  const h = hex.startsWith('0x') ? hex.slice(2) : hex
-  if (h.length === 0) return new Uint8Array(0)
-  const bytes = new Uint8Array(h.length / 2)
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16)
+  const raw = hex.startsWith('0x') ? hex.slice(2) : hex
+  if (raw.length === 0 || raw.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(raw)) {
+    return new Uint8Array(0)
   }
-  return bytes
+  return Uint8Array.from(raw.match(/.{2}/g) ?? [], (byte) => Number.parseInt(byte, 16))
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`
 }
 
 function readLeUint128(bytes: Uint8Array, offset = 0): bigint {
-  let val = BigInt(0)
-  for (let i = offset + 15; i >= offset; i--) {
-    val = (val << BigInt(8)) | BigInt(bytes[i] ?? 0)
+  let value = BigInt(0)
+  for (let index = offset + 15; index >= offset; index--) {
+    value = (value << BigInt(8)) | BigInt(bytes[index] ?? 0)
   }
-  return val
+  return value
 }
 
 function readLeUint64(bytes: Uint8Array, offset = 0): bigint {
-  let val = BigInt(0)
-  for (let i = offset + 7; i >= offset; i--) {
-    val = (val << BigInt(8)) | BigInt(bytes[i] ?? 0)
+  let value = BigInt(0)
+  for (let index = offset + 7; index >= offset; index--) {
+    value = (value << BigInt(8)) | BigInt(bytes[index] ?? 0)
   }
-  return val
+  return value
 }
 
 function readLeUint32(bytes: Uint8Array, offset = 0): number {
-  return (bytes[offset] ?? 0) |
+  return (
+    (bytes[offset] ?? 0) |
     ((bytes[offset + 1] ?? 0) << 8) |
     ((bytes[offset + 2] ?? 0) << 16) |
     ((bytes[offset + 3] ?? 0) << 24)
+  ) >>> 0
 }
 
 interface PreviewEntry {
@@ -43,51 +48,93 @@ interface PreviewEntry {
 }
 
 function parseXudt(data: Uint8Array): PreviewEntry[] {
-  if (data.length < 16) return [{ label: 'Data too short', value: `${data.length} bytes` }]
-  const amount = readLeUint128(data)
-  const formatted = (Number(amount) / 1e8).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
-  return [
-    { label: 'Token Amount', value: `${formatted}`, highlight: true },
-    { label: 'Raw (uint128 LE)', value: `0x${Array.from(data.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join('')}` },
+  if (data.length < 16) return [{ label: 'Data too short', value: `${data.length} bytes; requires at least 16` }]
+
+  const entries: PreviewEntry[] = [
+    { label: 'Amount (uint128 LE)', value: readLeUint128(data).toString(), highlight: true },
+    { label: 'Encoded amount', value: bytesToHex(data.slice(0, 16)) },
   ]
+  if (data.length > 16) entries.push({ label: 'Extension data', value: `${data.length - 16} bytes` })
+  return entries
 }
 
 function parseDao(data: Uint8Array): PreviewEntry[] {
-  if (data.length === 0) return [{ label: 'Deposit cell', value: 'No data yet (fresh deposit)' }]
-  if (data.length < 8) return [{ label: 'Data too short', value: `${data.length} bytes` }]
-  const blockNumber = readLeUint64(data)
+  if (data.length !== 8) {
+    return [
+      { label: 'Invalid DAO data', value: `${data.length} bytes` },
+      { label: 'Fresh deposit requires', value: '8 zero bytes' },
+    ]
+  }
+
+  const depositBlockNumber = readLeUint64(data)
+  if (depositBlockNumber === BigInt(0)) {
+    return [
+      { label: 'State', value: 'Fresh deposit', highlight: true },
+      { label: 'Data', value: '8 zero bytes' },
+    ]
+  }
+
   return [
-    { label: 'Deposit Block', value: `#${blockNumber.toString()}`, highlight: true },
-    { label: 'Status', value: blockNumber === BigInt(0) ? 'Fresh deposit' : 'Waiting for withdrawal' },
+    { label: 'State', value: 'Withdrawal prepared', highlight: true },
+    { label: 'Deposit block number', value: `#${depositBlockNumber.toString()}` },
   ]
 }
 
+function readMoleculeBytes(segment: Uint8Array): Uint8Array | null {
+  if (segment.length < 4) return null
+  const length = readLeUint32(segment)
+  if (length !== segment.length - 4) return null
+  return segment.slice(4)
+}
+
 function parseSpore(data: Uint8Array): PreviewEntry[] {
-  if (data.length < 4) return [{ label: 'Data too short', value: `${data.length} bytes` }]
-  // Spore v2 molecule: table with 4-byte total size prefix
+  if (data.length < 16) return [{ label: 'Invalid SporeData', value: `${data.length} bytes` }]
+
   const totalSize = readLeUint32(data)
-  if (data.length < totalSize || data.length < 4) {
-    return [{ label: 'Raw data', value: `${data.length} bytes (Spore content)` }]
+  const firstOffset = readLeUint32(data, 4)
+  if (totalSize !== data.length || firstOffset !== 16) {
+    return [{ label: 'Invalid SporeData', value: 'Expected a 3-field Molecule table' }]
   }
-  // Try to extract meaningful text from the content area
-  const content = data.slice(4)
-  const text = new TextDecoder().decode(content.slice(0, Math.min(content.length, 120)))
-  const cleaned = text.replace(/[^\x20-\x7E]/g, '').trim()
-  if (cleaned.length > 0) {
-    return [
-      { label: 'Content', value: cleaned.substring(0, 80), highlight: true },
-      { label: 'Total size', value: `${totalSize} bytes` },
-    ]
+
+  const offsets = [firstOffset, readLeUint32(data, 8), readLeUint32(data, 12), totalSize]
+  if (offsets.some((offset, index) => offset > totalSize || (index > 0 && offset < offsets[index - 1]))) {
+    return [{ label: 'Invalid SporeData', value: 'Molecule offsets are out of range' }]
   }
-  return [{ label: 'Spore data', value: `${data.length} bytes` }]
+
+  const contentTypeBytes = readMoleculeBytes(data.slice(offsets[0], offsets[1]))
+  const contentBytes = readMoleculeBytes(data.slice(offsets[1], offsets[2]))
+  const clusterSegment = data.slice(offsets[2], offsets[3])
+  const clusterIdBytes = clusterSegment.length === 0 ? new Uint8Array(0) : readMoleculeBytes(clusterSegment)
+  if (!contentTypeBytes || !contentBytes || clusterIdBytes === null || (clusterIdBytes.length !== 0 && clusterIdBytes.length !== 32)) {
+    return [{ label: 'Invalid SporeData', value: 'Malformed Molecule field' }]
+  }
+
+  const contentType = new TextDecoder('utf-8', { fatal: false }).decode(contentTypeBytes)
+  const textContent = new TextDecoder('utf-8', { fatal: false }).decode(contentBytes)
+  const showText = /^(text\/|application\/(json|xml))/.test(contentType) && /^[\x09\x0A\x0D\x20-\x7E]*$/.test(textContent)
+
+  return [
+    { label: 'Content type', value: contentType || 'Empty', highlight: true },
+    { label: 'Content', value: showText ? textContent || 'Empty' : `${contentBytes.length} bytes` },
+    { label: 'Cluster ID', value: clusterIdBytes.length === 32 ? bytesToHex(clusterIdBytes) : 'None' },
+    { label: 'Molecule size', value: `${totalSize} bytes` },
+  ]
 }
 
 function identifyScript(codeHash: string, hashType: string): string | null {
-  const ch = codeHash.toLowerCase()
-  for (const s of KNOWN_SCRIPTS) {
-    if (s.codeHash.toLowerCase() === ch && s.hashType === hashType) return s.name
+  const normalizedCodeHash = codeHash.toLowerCase()
+  const known = KNOWN_SCRIPTS.find(
+    (script) => script.codeHash.toLowerCase() === normalizedCodeHash && script.hashType === hashType
+  )
+  return known?.name ?? null
+}
+
+function displayCapacity(capacity: string): string {
+  try {
+    return formatCapacityExact(capacity)
+  } catch {
+    return 'Invalid capacity'
   }
-  return null
 }
 
 interface DataPreviewProps {
@@ -98,37 +145,54 @@ interface DataPreviewProps {
 
 export function DataPreview({ type, data, capacity }: DataPreviewProps) {
   const bytes = hexToBytes(data)
-  const ckb = Number(capacity) / 1e8
 
   if (!type || !type.codeHash) {
     return (
       <PreviewDisplay
         entries={[
-          { label: 'Value', value: `${ckb.toLocaleString()} CKB`, highlight: true },
-          { label: 'Data', value: bytes.length === 0 ? 'Empty' : `${bytes.length} bytes` },
+          { label: 'Capacity', value: displayCapacity(capacity), highlight: true },
+          { label: 'Output data', value: bytes.length === 0 ? 'Empty' : `${bytes.length} bytes` },
         ]}
       />
     )
   }
 
   const scriptName = identifyScript(type.codeHash, type.hashType)
-  let entries: PreviewEntry[] = []
+  let entries: PreviewEntry[]
 
-  if (scriptName?.toLowerCase().includes('xudt')) {
+  if (scriptName === 'xUDT') {
     entries = parseXudt(bytes)
-  } else if (scriptName?.toLowerCase().includes('dao')) {
+    const args = hexToBytes(type.args)
+    entries.push({
+      label: 'Owner lock hash',
+      value: args.length < 32
+        ? 'Missing; requires 32 bytes'
+        : args.slice(0, 32).every((byte) => byte === 0)
+          ? 'Placeholder (all zeroes)'
+          : bytesToHex(args.slice(0, 32)),
+    })
+    entries.push({
+      label: 'xUDT extensions',
+      value: args.length <= 32 ? 'None' : `${args.length - 32} arg bytes`,
+    })
+  } else if (scriptName === 'Nervos DAO') {
     entries = parseDao(bytes)
-  } else if (scriptName?.toLowerCase().includes('spore')) {
+  } else if (scriptName === 'Spore v2') {
     entries = parseSpore(bytes)
-  } else if (scriptName?.toLowerCase().includes('always success') || scriptName?.toLowerCase().includes('type id')) {
+    const sporeId = hexToBytes(type.args)
+    entries.unshift({
+      label: 'Spore ID',
+      value: sporeId.length === 32 ? bytesToHex(sporeId) : 'Missing; requires 32 bytes',
+    })
+  } else if (scriptName === 'Type ID') {
     entries = [
-      { label: 'Type', value: 'Testing / demo', highlight: true },
-      { label: 'Data', value: bytes.length === 0 ? 'Empty' : `${bytes.length} bytes` },
+      { label: 'Type identity', value: type.args || 'Missing args', highlight: true },
+      { label: 'Output data', value: bytes.length === 0 ? 'Empty' : `${bytes.length} bytes (app-defined)` },
     ]
   } else {
     entries = [
-      { label: 'Script', value: scriptName ?? 'Unknown', highlight: false },
-      { label: 'Data', value: bytes.length === 0 ? 'Empty' : `${bytes.length} bytes` },
+      { label: 'Type script', value: scriptName ?? 'Unknown', highlight: false },
+      { label: 'Output data', value: bytes.length === 0 ? 'Empty' : `${bytes.length} bytes` },
     ]
   }
 
@@ -137,12 +201,14 @@ export function DataPreview({ type, data, capacity }: DataPreviewProps) {
 
 function PreviewDisplay({ entries }: { entries: PreviewEntry[] }) {
   return (
-    <div className="space-y-1 rounded-lg bg-stone-800/30 border border-stone-700/30 p-3">
-      <div className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Interpretation</div>
-      {entries.map((e, i) => (
-        <div key={i} className="flex items-center justify-between text-xs">
-          <span className="text-stone-500">{e.label}</span>
-          <span className={`font-mono ${e.highlight ? 'text-blue-300' : 'text-stone-400'}`}>{e.value}</span>
+    <div className="space-y-1 rounded-lg border border-stone-700/30 bg-stone-800/30 p-3">
+      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-stone-500">Interpretation</div>
+      {entries.map((entry) => (
+        <div key={entry.label} className="flex min-w-0 items-start justify-between gap-3 text-xs">
+          <span className="shrink-0 text-stone-500">{entry.label}</span>
+          <span className={`min-w-0 break-all text-right font-mono ${entry.highlight ? 'text-blue-300' : 'text-stone-400'}`}>
+            {entry.value}
+          </span>
         </div>
       ))}
     </div>

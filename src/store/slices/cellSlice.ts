@@ -19,7 +19,7 @@ export interface CellSlice {
   resetCells: () => void
   restoreCells: (cells: CellState[]) => void
   exportAsCode: () => string
-  applyTemplate: (cells: CellState[]) => void
+  applyTemplate: (cells: CellState[], options?: { asOutputs?: boolean }) => void
 }
 
 export const createCellSlice: StateCreator<StoreState, [], [], CellSlice> = (set, get) => ({
@@ -39,7 +39,6 @@ export const createCellSlice: StateCreator<StoreState, [], [], CellSlice> = (set
   removeCell: (index) =>
     set((s) => ({
       cells: s.cells.filter((_, i) => i !== index),
-      txInputs: s.txInputs.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)),
       txOutputs: s.txOutputs.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)),
       selectedIndex:
         s.selectedIndex === index
@@ -87,15 +86,19 @@ export const createCellSlice: StateCreator<StoreState, [], [], CellSlice> = (set
     set({
       cells: [emptyCell()],
       selectedIndex: 0,
-      txInputs: [],
       txOutputs: [],
       wallet: { ...defaultWallet },
     }),
 
-  restoreCells: (cells: CellState[]) => set({ cells, selectedIndex: 0, txInputs: [], txOutputs: [] }),
+  restoreCells: (cells: CellState[]) => set({ cells, selectedIndex: 0, txOutputs: [] }),
 
   exportAsCode: () => generateExportCode(get().cells),
 
-  applyTemplate: (cells) =>
-    set({ cells, selectedIndex: 0, showTemplates: false }),
+  applyTemplate: (cells, options) =>
+    set({
+      cells,
+      selectedIndex: 0,
+      showTemplates: false,
+      txOutputs: options?.asOutputs ? cells.map((_, index) => index) : [],
+    }),
 })

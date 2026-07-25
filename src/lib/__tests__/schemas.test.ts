@@ -205,20 +205,16 @@ describe('outpointSchema', () => {
   })
 
   it('parses outpoint with multi-digit index', () => {
-    const result = outpointSchema.safeParse('0xabc:42')
+    const result = outpointSchema.safeParse(`0x${'a'.repeat(64)}:42`)
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.index).toBe(42)
     }
   })
 
-  it('parses outpoint with a short txHash', () => {
+  it('rejects outpoint with a short txHash', () => {
     const result = outpointSchema.safeParse('0xdeadbeef:3')
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.txHash).toBe('0xdeadbeef')
-      expect(result.data.index).toBe(3)
-    }
+    expect(result.success).toBe(false)
   })
 
   it('rejects string without a colon separator', () => {
@@ -247,7 +243,7 @@ describe('outpointSchema', () => {
   })
 
   it('rejects non-numeric index', () => {
-    const result = outpointSchema.safeParse('0xabc:abc')
+    const result = outpointSchema.safeParse(`0x${'a'.repeat(64)}:abc`)
     expect(result.success).toBe(false)
   })
 
@@ -257,12 +253,22 @@ describe('outpointSchema', () => {
   })
 
   it('rejects empty index segment', () => {
-    const result = outpointSchema.safeParse('0xabc:')
+    const result = outpointSchema.safeParse(`0x${'a'.repeat(64)}:`)
     expect(result.success).toBe(false)
   })
 
   it('rejects index with trailing dash (not a valid number)', () => {
-    const result = outpointSchema.safeParse('0xabc:-')
+    const result = outpointSchema.safeParse(`0x${'a'.repeat(64)}:-`)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a negative index', () => {
+    const result = outpointSchema.safeParse(`0x${'a'.repeat(64)}:-1`)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects an index with trailing characters', () => {
+    const result = outpointSchema.safeParse(`0x${'a'.repeat(64)}:1abc`)
     expect(result.success).toBe(false)
   })
 })

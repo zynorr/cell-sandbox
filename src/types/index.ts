@@ -10,6 +10,8 @@ export interface CellState {
 export interface WalletState {
   connected: boolean
   address: string
+  walletName: string
+  signerName: string
   balance: { capacity: string; occupied: string; free: string }
   isConnecting: boolean
   isRefreshingBalance: boolean
@@ -37,6 +39,7 @@ export interface KnownScript {
   name: string
   codeHash: string
   hashType: 'type' | 'data' | 'data1' | 'data2'
+  roles: Array<'lock' | 'type'>
   description: string
   cellDep?: CellDep
 }

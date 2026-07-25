@@ -22,7 +22,22 @@ export function getScriptColor(script: { codeHash: string }): string {
 }
 
 export function formatCapacity(capacity: string | bigint | number): string {
-  const ckb = Number(capacity) / 1e8
-  return `${ckb.toFixed(2)} CKB`
+  try {
+    return formatCapacityExact(capacity)
+  } catch {
+    return 'Invalid capacity'
+  }
+}
+
+export function formatCapacityExact(capacity: string | bigint | number): string {
+  const value = BigInt(capacity)
+  const negative = value < BigInt(0)
+  const absolute = negative ? -value : value
+  const whole = absolute / BigInt(100000000)
+  const fraction = absolute % BigInt(100000000)
+  const wholeText = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  const fractionText = fraction.toString().padStart(8, '0').replace(/0+$/, '')
+
+  return `${negative ? '-' : ''}${wholeText}${fractionText ? `.${fractionText}` : ''} CKB`
 }
 

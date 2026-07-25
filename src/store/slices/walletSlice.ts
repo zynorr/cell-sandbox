@@ -1,8 +1,13 @@
 import type { StateCreator } from 'zustand'
-import type { WalletState, ScriptState } from '@/types'
+import type { CellState, WalletState, ScriptState } from '@/types'
 import type { StoreState } from '../sandbox'
 import { getClient } from '@/lib/ccc'
 import { getScriptCellDep } from '@/lib/script'
+import {
+  NERVOS_DAO_CODE_HASH,
+  SECP256K1_BLAKE160_CODE_HASH,
+  validateOutputCells,
+} from '@/lib/cellValidation'
 import { ccc } from '@ckb-ccc/ccc'
 
 const emptyBalance: WalletState['balance'] = { capacity: '0', occupied: '0', free: '0' }
@@ -33,29 +38,13 @@ async function getSpendableBalance(lockScript: ScriptState, network: 'testnet' |
   return { capacity: balance, occupied: '0', free: balance }
 }
 
-const signersByNetwork: Map<string, ccc.Signer> = new Map()
-
-async function getCkbSigner(network: string): Promise<ccc.Signer> {
-  const key = network
-  let signer = signersByNetwork.get(key)
-  if (signer) return signer
-
-  const client = getClient(network as 'testnet' | 'mainnet')
-  const signerList = ccc.JoyId.getJoyIdSigners(
-    client,
-    'Cell Sandbox',
-    typeof window !== 'undefined' ? window.location.origin + '/favicon.ico' : '',
-    []
-  )
-  signer = signerList.find((s: { name: string }) => s.name === 'CKB')?.signer
-  if (!signer) throw new Error('CKB signer not available')
-  signersByNetwork.set(key, signer)
-  return signer
-}
+let activeSigner: ccc.Signer | undefined
 
 export const defaultWallet: WalletState = {
   connected: false,
   address: '',
+  walletName: '',
+  signerName: '',
   balance: emptyBalance,
   isConnecting: false,
   isRefreshingBalance: false,
@@ -70,7 +59,7 @@ export interface WalletSlice {
   wallet: WalletState
   showConfirmDialog: boolean
 
-  connectWallet: () => Promise<void>
+  connectWallet: (signer: ccc.Signer, walletName: string, signerName: string) => Promise<void>
   disconnectWallet: () => void
   refreshWalletBalance: () => Promise<void>
   sendTransaction: () => Promise<void>
@@ -83,23 +72,40 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
 
   setShowConfirmDialog: (showConfirmDialog) => set({ showConfirmDialog }),
 
-  connectWallet: async () => {
+  connectWallet: async (signer, walletName, signerName) => {
     const state = get()
     if (state.wallet.isConnecting) return
+    if (activeSigner === signer && state.wallet.connected) return
     set({ wallet: { ...state.wallet, isConnecting: true, sendError: null, balanceError: null } })
 
     try {
-      const ckbSigner = await getCkbSigner(state.network)
-      await ckbSigner.connect()
-      const identity = await ckbSigner.getIdentity()
-      const addressObjs = await ckbSigner.getAddressObjs()
-      const addressStr = addressObjs[0]?.toString() ?? identity
-      const addressScript = addressObjs[0]?.script
+      if (!(await signer.isConnected())) await signer.connect()
+      const addressObjs = await signer.getAddressObjs()
+      const addressObj = addressObjs[0]
+      const addressScript = addressObj?.script
+      if (!addressObj || !addressScript) {
+        throw new Error('The selected wallet did not provide a CKB address for this network.')
+      }
 
-      set({
+      activeSigner = signer
+      const walletLockScript: ScriptState = {
+        codeHash: addressScript.codeHash,
+        hashType: addressScript.hashType as ScriptState['hashType'],
+        args: addressScript.args,
+      }
+
+      set((current) => ({
+        cells: current.cells.map((cell) =>
+          cell.lock.codeHash.toLowerCase() === SECP256K1_BLAKE160_CODE_HASH &&
+          (!cell.lock.args || cell.lock.args === '0x')
+            ? { ...cell, lock: { ...walletLockScript } }
+            : cell
+        ),
         wallet: {
           connected: true,
-          address: addressStr,
+          address: addressObj.toString(),
+          walletName,
+          signerName,
           balance: emptyBalance,
           isConnecting: false,
           isRefreshingBalance: false,
@@ -108,17 +114,15 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
           explorerUrl: null,
           sendError: null,
           balanceError: null,
-          lockScript: addressScript
-            ? { codeHash: addressScript.codeHash, hashType: addressScript.hashType as ScriptState['hashType'], args: addressScript.args }
-            : undefined,
+          lockScript: walletLockScript,
         },
-      })
+      }))
       await get().refreshWalletBalance()
     } catch (e) {
+      activeSigner = undefined
       set({
         wallet: {
-          ...get().wallet,
-          isConnecting: false,
+          ...defaultWallet,
           sendError: getErrorMessage(e, 'Failed to connect wallet'),
         },
       })
@@ -126,7 +130,7 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
   },
 
   disconnectWallet: () => {
-    signersByNetwork.clear()
+    activeSigner = undefined
     set({ wallet: { ...defaultWallet } })
   },
 
@@ -180,15 +184,21 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
     set({ wallet: { ...state.wallet, isSending: true, sendError: null, lastTxHash: null, explorerUrl: null } })
 
     try {
-      const ckbSigner = await getCkbSigner(state.network)
+      const ckbSigner = activeSigner
+      if (!ckbSigner) throw new Error('Wallet signer is unavailable. Reconnect your wallet and try again.')
       if (!(await ckbSigner.isConnected())) await ckbSigner.connect()
+      const client = getClient(state.network)
 
       const codeHashes = new Set<string>()
       const outputs: ccc.CellOutput[] = []
       const outputsData: string[] = []
-      for (const ci of state.txOutputs) {
-        const cell = state.cells[ci]
-        if (!cell) continue
+      const outputSelections = state.txOutputs
+        .map((index) => ({ index, cell: state.cells[index] }))
+        .filter((selection): selection is { index: number; cell: CellState } => selection.cell !== undefined)
+      const outputIssues = validateOutputCells(outputSelections)
+      if (outputIssues.length > 0) throw new Error(outputIssues[0])
+
+      for (const { cell } of outputSelections) {
 
         if (cell.lock.codeHash) codeHashes.add(cell.lock.codeHash.toLowerCase())
         if (cell.type?.codeHash) codeHashes.add(cell.type.codeHash.toLowerCase())
@@ -208,7 +218,7 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
 
         outputs.push(
           ccc.CellOutput.from({
-            capacity: ccc.fixedPointFrom(Number(cell.capacity) / 1e8),
+            capacity: BigInt(cell.capacity),
             lock,
             ...(type ? { type } : {}),
           })
@@ -218,6 +228,7 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
 
       const cellDeps: ccc.CellDep[] = []
       for (const ch of codeHashes) {
+        if (ch === NERVOS_DAO_CODE_HASH) continue
         const dep = getScriptCellDep(ch)
         if (dep) {
           cellDeps.push(
@@ -233,6 +244,10 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
       }
 
       const tx = ccc.Transaction.from({ outputs, outputsData, cellDeps })
+
+      if (codeHashes.has(NERVOS_DAO_CODE_HASH)) {
+        await tx.addCellDepsOfKnownScripts(client, ccc.KnownScript.NervosDao)
+      }
 
       if (tx.outputs.length === 0) throw new Error('No outputs assigned. Mark cells as outputs in Tx Flow view.')
 
@@ -256,13 +271,15 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
       let friendly = raw
 
       if (raw.includes('Insufficient CKB')) {
-        friendly = 'Insufficient CKB — claim testnet tokens from the faucet or reduce your output capacities.'
+        friendly = 'Insufficient CKB - claim testnet tokens from the faucet or reduce your output capacities.'
       } else if (raw.includes('ScriptNotFound')) {
-        friendly = 'Script not found — a needed cell dep is missing or the script is undeployed on this network.'
+        friendly = 'Script not found - a needed cell dep is missing or the script is undeployed on this network.'
       } else if (raw.includes('error code -1 on page')) {
-        friendly = 'Invalid script args — the script expected a specific arg length (e.g. xUDT needs 32 bytes for the token ID).'
+        friendly = 'Invalid script args - the script expected a different arg length (for example, xUDT starts with a 32-byte owner lock hash).'
       } else if (raw.includes('error code -52') || raw.includes('ERROR_AMOUNT')) {
-        friendly = 'Token amount mismatch — you need an input cell with the same token type to send tokens.'
+        friendly = 'Token amount mismatch - you need input Cells with the same token type to create xUDT outputs.'
+      } else if (raw.includes(NERVOS_DAO_CODE_HASH) && raw.includes('error code -4')) {
+        friendly = 'Invalid Nervos DAO output data. A new DAO deposit must contain exactly 8 zero bytes (0x0000000000000000).'
       }
 
       set({

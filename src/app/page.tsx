@@ -56,11 +56,9 @@ function EmptyCellsState() {
   )
 }
 
-function CellCanvas({ showTxControls }: { showTxControls: boolean }) {
+function CellCanvas({ showOutputControls }: { showOutputControls: boolean }) {
   const cells = useSandbox((s) => s.cells)
-  const txInputs = useSandbox((s) => s.txInputs)
   const txOutputs = useSandbox((s) => s.txOutputs)
-  const toggleTxInput = useSandbox((s) => s.toggleTxInput)
   const toggleTxOutput = useSandbox((s) => s.toggleTxOutput)
 
   if (cells.length === 0) return <EmptyCellsState />
@@ -70,27 +68,19 @@ function CellCanvas({ showTxControls }: { showTxControls: boolean }) {
       {cells.map((_, i) => (
         <div key={i} className="flex flex-col items-center gap-2">
           <CellView index={i} />
-          {showTxControls && (
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => toggleTxInput(i)}
-                className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-all active:scale-95 ${
-                  txInputs.includes(i)
-                    ? 'bg-blue-600/90 text-white shadow-sm'
-                    : 'border border-stone-700/50 bg-stone-800/50 text-stone-500 hover:border-blue-500/50 hover:text-stone-300'
-                }`}
-              >
-                Input
-              </button>
+          {showOutputControls && (
+            <div>
               <button
                 onClick={() => toggleTxOutput(i)}
-                className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-all active:scale-95 ${
+                aria-label={`${txOutputs.includes(i) ? 'Remove' : 'Mark'} Cell #${i} ${txOutputs.includes(i) ? 'from' : 'as'} transaction output`}
+                title={`${txOutputs.includes(i) ? 'Remove' : 'Mark'} Cell #${i} ${txOutputs.includes(i) ? 'from' : 'as'} transaction output`}
+                className={`min-w-24 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all active:scale-95 ${
                   txOutputs.includes(i)
                     ? 'bg-emerald-600/90 text-white shadow-sm'
                     : 'border border-stone-700/50 bg-stone-800/50 text-stone-500 hover:border-emerald-500/50 hover:text-stone-300'
                 }`}
               >
-                Output
+                {txOutputs.includes(i) ? 'Output added' : 'Add output'}
               </button>
             </div>
           )}
@@ -116,11 +106,11 @@ function EditorAside() {
 function ToolbarBand() {
   return (
     <div className="border-b border-stone-800/80 bg-stone-950/20 px-4 py-3 sm:px-6">
-      <div className="flex items-start gap-4">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
         <div className="min-w-0 flex-1">
           <Toolbar />
         </div>
-        <div className="flex shrink-0 items-start gap-1.5">
+        <div className="flex shrink-0 items-start gap-1.5 sm:pt-0">
           <CellTemplates />
         </div>
       </div>
@@ -148,6 +138,11 @@ export default function Home() {
 
   const [showNetworkMenu, setShowNetworkMenu] = useState(false)
   const networkRef = useRef<HTMLDivElement>(null)
+  const workspaceRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    workspaceRef.current?.scrollTo({ top: 0, left: 0 })
+  }, [viewMode])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -236,11 +231,11 @@ export default function Home() {
 
       <GuidePanel />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={workspaceRef} className="min-h-0 flex-1 overflow-y-auto">
         {viewMode === 'learn' && (
           <div className="grid gap-4 p-4 lg:grid-cols-[16rem_1fr] xl:grid-cols-[16rem_1fr_22rem]">
             <StartHerePanel />
-            <main className="space-y-4">
+            <main className="min-w-0 space-y-4">
               <section className="rounded-lg border border-stone-800 bg-stone-950/40 p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Learning Flow</p>
                 <h1 className="mt-1 text-lg font-semibold text-stone-100">See the Cell model before writing code</h1>
@@ -278,7 +273,7 @@ export default function Home() {
             <ToolbarBand />
             <div className="flex flex-col lg:flex-row">
               <main className="flex-1 p-4 sm:p-6">
-                <CellCanvas showTxControls={false} />
+                <CellCanvas showOutputControls={false} />
               </main>
               <EditorAside />
             </div>
@@ -288,7 +283,7 @@ export default function Home() {
         {viewMode === 'inspect' && (
           <div className="grid gap-4 p-4 lg:grid-cols-[16rem_1fr]">
             <StartHerePanel />
-            <main>
+            <main className="min-w-0">
               <TransactionInspector />
             </main>
           </div>
@@ -300,7 +295,7 @@ export default function Home() {
             <TransactionFlow />
             <div className="flex flex-col lg:flex-row">
               <main className="flex-1 p-4 sm:p-6">
-                <CellCanvas showTxControls />
+                <CellCanvas showOutputControls />
               </main>
               <EditorAside />
             </div>

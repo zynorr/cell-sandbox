@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ccc } from '@ckb-ccc/connector-react'
 import { useSandbox } from '@/store/sandbox'
+import { formatCapacity, getClient } from '@/lib/ccc'
 import { TxConfirmDialog } from './TxConfirmDialog'
-
-const SHANNONS_PER_CKB = BigInt(100000000)
 
 export function WalletConnect() {
   const wallet = useSandbox((s) => s.wallet)
@@ -13,23 +13,42 @@ export function WalletConnect() {
   const refreshWalletBalance = useSandbox((s) => s.refreshWalletBalance)
   const txOutputs = useSandbox((s) => s.txOutputs)
   const network = useSandbox((s) => s.network)
+  const connector = ccc.useCcc()
+  const signer = ccc.useSigner()
+  const previousNetwork = useRef(network)
   const [faucetStatus, setFaucetStatus] = useState<'idle' | 'claiming' | 'done' | 'checking' | 'error' | null>(null)
   const [faucetMsg, setFaucetMsg] = useState('')
   const [claimTxHash, setClaimTxHash] = useState<string | null>(null)
 
   const isMainnet = network === 'mainnet'
 
-  function formatCkb(shannons: string): string {
-    try {
-      const value = BigInt(shannons || '0')
-      const whole = value / SHANNONS_PER_CKB
-      const fraction = value % SHANNONS_PER_CKB
-      const wholeText = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-      const fractionText = fraction.toString().padStart(8, '0').replace(/0+$/, '').slice(0, 4)
-      return `${wholeText}${fractionText ? `.${fractionText}` : ''} CKB`
-    } catch {
-      return '0 CKB'
+  useEffect(() => {
+    if (previousNetwork.current === network) return
+
+    previousNetwork.current = network
+    connector.disconnect()
+    disconnectWallet()
+    connector.setClient(getClient(network))
+  }, [connector, disconnectWallet, network])
+
+  useEffect(() => {
+    if (!signer || !connector.wallet || !connector.signerInfo) {
+      if (wallet.connected) disconnectWallet()
+      return
     }
+
+    void connectWallet(signer, connector.wallet.name, connector.signerInfo.name)
+  }, [connectWallet, connector.signerInfo, connector.wallet, disconnectWallet, signer, wallet.connected])
+
+  function disconnect() {
+    connector.disconnect()
+    disconnectWallet()
+  }
+
+  function switchWallet() {
+    connector.disconnect()
+    disconnectWallet()
+    window.setTimeout(() => connector.open(), 200)
   }
 
   function getErrorMessage(data: unknown, fallback: string): string {
@@ -116,7 +135,9 @@ export function WalletConnect() {
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Wallet</p>
             <p className="mt-0.5 text-xs text-stone-400">
-              {wallet.connected ? 'Connected and ready for signing' : 'Connect before faucet or send'}
+              {wallet.connected
+                ? `${wallet.walletName} - ${wallet.signerName}`
+                : 'Choose a CCC-compatible wallet'}
             </p>
           </div>
           <span className="rounded-full border border-stone-700 px-2 py-0.5 text-[10px] uppercase tracking-wider text-stone-500">
@@ -132,12 +153,20 @@ export function WalletConnect() {
                   {wallet.address.slice(0, 12)}...{wallet.address.slice(-6)}
                 </span>
               </div>
-              <button
-                onClick={disconnectWallet}
-                className="text-[10px] text-stone-500 transition-colors hover:text-stone-400"
-              >
-                Disconnect
-              </button>
+              <div className="flex items-center gap-2 text-[10px]">
+                <button
+                  onClick={switchWallet}
+                  className="text-blue-400 transition-colors hover:text-blue-300"
+                >
+                  Switch
+                </button>
+                <button
+                  onClick={disconnect}
+                  className="text-stone-500 transition-colors hover:text-stone-400"
+                >
+                  Disconnect
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -169,13 +198,15 @@ export function WalletConnect() {
                   </button>
                 </div>
                 <p className="mt-1 font-mono text-stone-300">
-                  {wallet.isRefreshingBalance ? 'Refreshing...' : formatCkb(wallet.balance.free)}
+                  {wallet.isRefreshingBalance ? 'Refreshing...' : formatCapacity(wallet.balance.free)}
                 </p>
                 {wallet.balanceError && <p className="mt-1 text-[10px] leading-4 text-red-400">{wallet.balanceError}</p>}
               </div>
               <div className="rounded-lg border border-stone-800 bg-stone-950/50 px-2.5 py-2">
                 <p className="text-[10px] uppercase tracking-wider text-stone-500">Signing</p>
-                <p className="mt-1 text-emerald-300">Ready</p>
+                <p className="mt-1 truncate text-emerald-300" title={wallet.walletName}>
+                  {wallet.walletName || 'Ready'}
+                </p>
               </div>
             </div>
 
@@ -261,8 +292,8 @@ export function WalletConnect() {
                 </span>
               ) : (
                 txOutputs.length === 0
-                  ? 'Select an Output first'
-                  : `Send Tx (${txOutputs.length} output${txOutputs.length !== 1 ? 's' : ''})`
+                  ? 'Add an output first'
+                  : `Review transaction (${txOutputs.length} output${txOutputs.length !== 1 ? 's' : ''})`
               )}
             </button>
 
@@ -307,13 +338,13 @@ export function WalletConnect() {
         ) : (
           <>
             <div className="rounded-lg border border-stone-800 bg-stone-950/50 p-3">
-              <p className="text-xs font-medium text-stone-300">JoyID passkey wallet</p>
+              <p className="text-xs font-medium text-stone-300">CCC wallet selector</p>
               <p className="mt-1 text-xs leading-5 text-stone-500">
-                Use JoyID to sign testnet transactions and request faucet capacity for experiments.
+                Connect JoyID or another compatible wallet. Empty output locks from Build templates are filled automatically.
               </p>
             </div>
             <button
-              onClick={connectWallet}
+              onClick={() => connector.open()}
               disabled={wallet.isConnecting}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-stone-700 px-3 py-2 text-xs font-medium text-stone-200 transition-all hover:bg-stone-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -328,10 +359,15 @@ export function WalletConnect() {
                     <rect x="1" y="4" width="14" height="9" rx="1.5" />
                     <circle cx="8" cy="8.5" r="1.5" />
                   </svg>
-                  Connect JoyID
+                  Choose wallet
                 </>
               )}
             </button>
+            {wallet.sendError && (
+              <div className="rounded-lg border border-red-800/20 bg-red-900/15 px-2.5 py-1.5 text-xs text-red-400 animate-fade-in">
+                {wallet.sendError}
+              </div>
+            )}
           </>
         )}
       </div>

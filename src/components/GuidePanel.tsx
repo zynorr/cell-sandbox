@@ -10,7 +10,7 @@ const GUIDE_STEPS: Array<{
 }> = [
   {
     title: 'Learn the Cell shape',
-    body: 'Start with capacity, lock script, optional type script, and data. These fields describe storage, ownership, state rules, and bytes.',
+    body: 'Start with capacity, the required lock script, an optional type script, and output data.',
     mode: 'learn',
   },
   {
@@ -20,7 +20,7 @@ const GUIDE_STEPS: Array<{
   },
   {
     title: 'Inspect a transaction',
-    body: 'Paste a transaction hash to compare live input Cells consumed with new output Cells created by that transaction.',
+    body: 'Paste a transaction hash to compare the Cells referenced by its inputs with the new output Cells it creates.',
     mode: 'inspect',
   },
   {
@@ -82,7 +82,7 @@ export function GuidePanel() {
         <div className="mt-5 rounded-lg border border-blue-900/40 bg-blue-950/20 p-3">
           <p className="text-xs font-medium text-blue-200">Key mental model</p>
           <p className="mt-1 text-xs leading-5 text-stone-400">
-            A CKB transaction consumes live input Cells and creates new output Cells. The sandbox should help you see that state transition first, then map it back to code.
+            A valid CKB transaction consumes Cells that are live before the transaction and creates new output Cells. Once committed, each consumed Cell is dead and cannot be used again.
           </p>
         </div>
       </aside>

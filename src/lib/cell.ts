@@ -63,23 +63,29 @@ export function generateExportCode(cells: CellState[]): string {
     const lockCode = cell.lock.codeHash || '0x0000...'
     const lockArgs = cell.lock.args || '0x'
     const typeSection = cell.type
-      ? `      type: ccc.Script.from({
+      ? `
+      type: ccc.Script.from({
         codeHash: ccc.hexFrom('${cell.type.codeHash}'),
         hashType: '${cell.type.hashType}',
         args: ccc.hexFrom('${cell.type.args || '0x'}'),
-      }),\n`
+      }),`
       : ''
 
-    lines.push(`    {
-      capacity: ccc.fixedPointFrom(${Number(cell.capacity) / 1e8}),
+    lines.push(`    ccc.CellOutput.from({
+      capacity: BigInt('${cell.capacity}'),
       lock: ccc.Script.from({
         codeHash: ccc.hexFrom('${lockCode}'),
         hashType: '${cell.lock.hashType}',
         args: ccc.hexFrom('${lockArgs}'),
-      }),${typeSection ? `\n${typeSection}` : ''}
-    },`)
+      }),${typeSection}
+    }),`)
   }
 
+  lines.push('  ],')
+  lines.push('  outputsData: [')
+  for (const cell of cells) {
+    lines.push(`    ccc.hexFrom('${cell.data || '0x'}'),`)
+  }
   lines.push('  ],')
   lines.push('})')
   lines.push('')

@@ -5,7 +5,22 @@ import { ScriptSelector } from './ScriptSelector'
 import { DataEditor } from './DataEditor'
 import { DataPreview } from './DataPreview'
 import { estimateFreeCapacity, estimateOccupiedBytes, estimateOccupiedCapacity } from '@/lib/cellMetrics'
-import { formatCapacity } from '@/lib/ccc'
+import { formatCapacity, formatCapacityExact } from '@/lib/ccc'
+import {
+  getLockScriptAdvisory,
+  getLockScriptIssue,
+  getTypeScriptAdvisory,
+  getTypeScriptIssue,
+  SECP256K1_BLAKE160_CODE_HASH,
+} from '@/lib/cellValidation'
+
+function formatCapacityInput(capacity: string): string {
+  try {
+    return formatCapacityExact(capacity)
+  } catch {
+    return 'Enter capacity as whole shannons'
+  }
+}
 
 export function CellEditor() {
   const cells = useSandbox((s) => s.cells)
@@ -28,6 +43,15 @@ export function CellEditor() {
   const occupiedBytes = estimateOccupiedBytes(cell)
   const occupiedCapacity = estimateOccupiedCapacity(cell)
   const freeCapacity = estimateFreeCapacity(cell)
+  const lockIssue = cell.lock.codeHash ? getLockScriptIssue(cell.lock) : null
+  const lockAdvisory = cell.lock.codeHash ? getLockScriptAdvisory(cell.lock) : null
+  const typeIssue = cell.type?.codeHash ? getTypeScriptIssue(cell.type) : null
+  const typeAdvisory = getTypeScriptAdvisory(cell.type)
+  const walletLockPending =
+    cell.lock.codeHash.toLowerCase() === SECP256K1_BLAKE160_CODE_HASH &&
+    (!cell.lock.args || cell.lock.args === '0x')
+  const occupiedAfterWallet = occupiedCapacity + BigInt(20 * 100000000)
+  const freeAfterWallet = freeCapacity - BigInt(20 * 100000000)
 
   return (
     <div className="space-y-4 p-4">
@@ -53,10 +77,10 @@ export function CellEditor() {
           placeholder="10000000000"
         />
         <p className="text-[11px] text-stone-500 font-mono">
-          {Number(cell.capacity) / 1e8} CKB
+          {formatCapacityInput(cell.capacity)}
         </p>
         <p className="text-[11px] leading-4 text-stone-600">
-          Capacity is the Cell&apos;s CKB amount and storage limit. It must cover the occupied bytes of lock, type, and data.
+          Capacity is a Uint64 shannon amount and the Cell&apos;s byte limit. It covers capacity, lock, optional type, and output data.
         </p>
         <div className="grid grid-cols-2 gap-2 rounded-lg border border-stone-800 bg-stone-950/50 p-2 text-[11px]">
           <div>
@@ -72,18 +96,39 @@ export function CellEditor() {
           <div className="col-span-2 text-stone-600">
             Estimated occupied size: <span className="font-mono text-stone-400">{occupiedBytes} bytes</span>
           </div>
+          {walletLockPending && (
+            <div className="col-span-2 border-t border-stone-800 pt-2 text-stone-500">
+              After the wallet adds 20-byte lock args:{' '}
+              <span className="font-mono text-stone-300">{formatCapacity(occupiedAfterWallet)} occupied</span>
+              {' / '}
+              <span className={`font-mono ${freeAfterWallet >= BigInt(0) ? 'text-emerald-300' : 'text-red-300'}`}>
+                {formatCapacity(freeAfterWallet)} free
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-stone-400">Lock Script</label>
         <p className="text-[11px] leading-4 text-stone-600">
-          Ownership rule. The lock script decides when this Cell can be spent as an input.
+          Required spending condition. It executes when this Cell is consumed as an input.
         </p>
         <ScriptSelector
           script={cell.lock}
+          role="lock"
           onChange={(lock) => updateCell(selectedIndex, { lock })}
         />
+        {lockIssue && (
+          <p className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-2.5 py-2 text-[11px] leading-4 text-amber-300">
+            {lockIssue}
+          </p>
+        )}
+        {!lockIssue && lockAdvisory && (
+          <p className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-2.5 py-2 text-[11px] leading-4 text-amber-300">
+            {lockAdvisory}
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -109,17 +154,28 @@ export function CellEditor() {
         {cell.type && (
           <>
             <p className="text-[11px] leading-4 text-stone-600">
-              Optional state-transition rule for tokens, DAO, NFTs, or app-specific Cells.
+              Optional application rule checked for matching input and output Cells.
             </p>
             <ScriptSelector
               script={cell.type}
+              role="type"
               onChange={(type) => updateCell(selectedIndex, { type })}
             />
+            {typeIssue && (
+              <p className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-2.5 py-2 text-[11px] leading-4 text-amber-300">
+                {typeIssue}
+              </p>
+            )}
+            {!typeIssue && typeAdvisory && (
+              <p className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-2.5 py-2 text-[11px] leading-4 text-amber-300">
+                {typeAdvisory}
+              </p>
+            )}
           </>
         )}
         {!cell.type && (
           <p className="text-[11px] leading-4 text-stone-600">
-            Without a type script, this Cell has ownership and data but no extra state-transition rule.
+            Without a type script, the Cell still has a lock and output data but no additional application rule.
           </p>
         )}
       </div>
@@ -127,7 +183,7 @@ export function CellEditor() {
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-stone-400">Output Data</label>
         <p className="text-[11px] leading-4 text-stone-600">
-          Arbitrary bytes stored in the Cell. The preview below interprets common token, DAO, and Spore patterns.
+          Bytes at the matching index in the transaction&apos;s outputs_data array. The preview interprets common xUDT, DAO, and Spore encodings.
         </p>
         <DataEditor
           value={cell.data}

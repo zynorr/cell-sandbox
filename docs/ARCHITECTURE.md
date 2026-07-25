@@ -31,7 +31,7 @@ The Zustand store is composed from four independent slices:
 useSandbox (src/store/sandbox.ts)
 ├── cellSlice    → cells[], addCell, updateCell, removeCell, resetCells
 ├── uiSlice     → viewMode, showTemplates, showExport, network, etc.
-├── flowSlice   → inputs[], outputs[], cellDeps[], witnesses, etc.
+├── flowSlice   → transaction output selections
 └── walletSlice → address, balance, connected, sendTransaction, etc.
 ```
 
@@ -41,9 +41,9 @@ useSandbox (src/store/sandbox.ts)
 
 **uiSlice** — UI state: which view is active (builder/flow), which panels are open, which cell is selected, the active network (testnet/mainnet).
 
-**flowSlice** — Transaction flow state: which cells are assigned as inputs/outputs, cell deps gathered from scripts, and witness placeholders.
+**flowSlice** — Transaction flow state for designed Cells selected as new outputs. Funding inputs are deliberately absent from UI state because the active wallet selects live, spendable Cells while completing the transaction.
 
-**walletSlice** — Wallet connection lifecycle: connect/disconnect, balance fetching, transaction building and sending, faucet claiming.
+**walletSlice** — Selected CCC signer state, balance fetching, placeholder output-lock hydration, output validation, network-aware cell deps, transaction completion, and sending. Wallet discovery and connection are handled by the CCC React connector.
 
 ---
 
@@ -76,17 +76,17 @@ useSandbox (src/store/sandbox.ts)
 ### 2. Network-Aware Everything
 The `network` state lives in `uiSlice` and flows through:
 - **CCC client** — creates the right `ClientPublicTestnet` / `ClientPublicMainnet`
-- **Wallet signer** — JoyID signer cached per network
+- **Wallet signer** — selected by `@ckb-ccc/connector-react` and bridged into `walletSlice`; network changes disconnect it before the client changes
 - **Cell loader** — `loadCellFromChain` passes network to the client
 - **Toolbar** — placeholder text shows current network
 - **Faucet** — hidden on mainnet with a "Switch to testnet" prompt
 - **Explorer links** — generated per network
 
 ### 3. Script Registry
-`src/lib/script.ts` maintains a registry of known CKB scripts with their code hashes, hash types, and optional cell deps. This registry is the single source of truth for script selection throughout the UI.
+`src/lib/script.ts` maintains a role-aware registry of known CKB lock and type scripts with their Pudge code hashes, hash types, and optional cell deps. Role filtering prevents protocol type scripts from appearing as lock presets and vice versa.
 
 ### 4. Template System
-Templates in `src/lib/templates.ts` define pre-built cell configurations as plain data objects. Each template specifies a category, color theme, and whether it's sendable (realistic) or just for design exploration.
+Templates in `src/lib/templates.ts` define pre-built Cell configurations as plain data objects. Build templates can become transaction outputs; design-only examples return to the editor. Applying any template replaces the workspace and clears stale flow selections.
 
 ### 5. URL Sharing
 `src/lib/share.ts` serializes cell state arrays to base64-encoded JSON query parameters. Deserialization runs through Zod validation to reject malformed or malicious payloads.
@@ -115,7 +115,7 @@ interface ScriptState {
 }
 
 type NetworkMode = 'testnet' | 'mainnet'
-type ViewMode = 'builder' | 'flow'
+type ViewMode = 'learn' | 'design' | 'inspect' | 'build'
 ```
 
 ---
@@ -125,4 +125,4 @@ type ViewMode = 'builder' | 'flow'
 - **Faucet API key** is server-side only (Vercel edge function)
 - **Share URLs** are Zod-validated on deserialization to prevent XSS
 - **No server-side storage** — all user data stays in the browser
-- **JoyID** handles key management; the app never touches private keys
+- **Connected wallets** handle key management and signing; the app never touches private keys

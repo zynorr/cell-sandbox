@@ -29,6 +29,15 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
       }`}
       style={{ width: size, height: size + (compact ? 0 : 4) }}
       onClick={() => setSelectedIndex(index)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          setSelectedIndex(index)
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Select Cell #${index}`}
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <defs>

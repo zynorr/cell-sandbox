@@ -77,8 +77,8 @@ export function Toolbar() {
 
   return (
     <div className="space-y-2.5">
-      <form onSubmit={handleLoad} className="flex items-end gap-2">
-        <div className="min-w-[200px] flex-1">
+      <form onSubmit={handleLoad} className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-end">
+        <div className="min-w-0 flex-1">
           <label htmlFor="cell-outpoint-input" className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
             Load Cell by Outpoint
           </label>
@@ -101,7 +101,7 @@ export function Toolbar() {
         <button
           type="submit"
           disabled={store.isLoading}
-          className="mb-5 rounded-lg bg-stone-700 px-3 py-1.5 text-xs font-medium text-stone-200 transition-colors hover:bg-stone-600 disabled:cursor-not-allowed disabled:opacity-40"
+          className="w-full rounded-lg bg-stone-700 px-3 py-1.5 text-xs font-medium text-stone-200 transition-colors hover:bg-stone-600 disabled:cursor-not-allowed disabled:opacity-40 min-[480px]:mb-5 min-[480px]:w-auto"
         >
           {store.isLoading ? (
             <span className="flex items-center gap-1.5">

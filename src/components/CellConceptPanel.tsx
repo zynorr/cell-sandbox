@@ -6,22 +6,22 @@ import { useSandbox } from '@/store/sandbox'
 const CONCEPTS = [
   {
     title: 'Capacity',
-    body: 'Storage limit and CKB amount held by the Cell, denominated in shannons.',
+    body: 'Uint64 amount in shannons: both the CKByte value and byte budget for the complete Cell.',
     tone: 'border-emerald-800/40 bg-emerald-950/20 text-emerald-200',
   },
   {
     title: 'Lock Script',
-    body: 'Ownership rule that decides when the Cell can be spent.',
+    body: 'Required spending condition, executed when the Cell is consumed as an input.',
     tone: 'border-blue-800/40 bg-blue-950/20 text-blue-200',
   },
   {
     title: 'Type Script',
-    body: 'Optional state-transition rule for tokens, DAO deposits, NFTs, and app Cells.',
+    body: 'Optional application rule checked for matching input and output Cells.',
     tone: 'border-violet-800/40 bg-violet-950/20 text-violet-200',
   },
   {
     title: 'Data',
-    body: 'Application bytes stored in the Cell, such as token amount, DAO metadata, or content.',
+    body: 'Application bytes stored in outputs_data at the same index as the Cell output.',
     tone: 'border-amber-800/40 bg-amber-950/20 text-amber-200',
   },
 ]
@@ -40,7 +40,7 @@ export function CellConceptPanel() {
             <div className="flex flex-col items-center gap-3">
               <CellView index={activeIndex} />
               <p className="max-w-sm text-center text-xs leading-5 text-stone-500">
-                The rings show lock and type scripts. The center capacity is both stored CKB and the storage limit for the Cell&apos;s bytes.
+                The rings show lock and type scripts. Capacity is both the Cell&apos;s CKByte value and the byte budget for its complete structure.
               </p>
             </div>
           ) : (

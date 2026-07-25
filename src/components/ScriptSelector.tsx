@@ -6,19 +6,21 @@ import { KNOWN_SCRIPTS } from '@/lib/script'
 
 interface ScriptSelectorProps {
   script: ScriptState
+  role: 'lock' | 'type'
   onChange: (script: ScriptState) => void
 }
 
-export function ScriptSelector({ script, onChange }: ScriptSelectorProps) {
+export function ScriptSelector({ script, role, onChange }: ScriptSelectorProps) {
   const [showKnown, setShowKnown] = useState(false)
+  const availableScripts = KNOWN_SCRIPTS.filter((known) => known.roles.includes(role))
 
-  const selectedKnown = KNOWN_SCRIPTS.find(
-    (s) => s.codeHash === script.codeHash
+  const selectedKnown = availableScripts.find(
+    (known) => known.codeHash === script.codeHash && known.hashType === script.hashType
   )
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 min-[380px]:flex-row">
         <button
           onClick={() => setShowKnown(!showKnown)}
           className="text-xs font-medium bg-stone-700 hover:bg-stone-600 text-stone-200 px-2.5 py-1 rounded-lg transition-all whitespace-nowrap active:scale-95"
@@ -29,7 +31,7 @@ export function ScriptSelector({ script, onChange }: ScriptSelectorProps) {
           type="text"
           value={script.args}
           onChange={(e) => onChange({ ...script, args: e.target.value })}
-          className="flex-1 bg-stone-800/50 border border-stone-700/50 rounded-lg px-2.5 py-1 text-xs font-mono text-stone-300 placeholder-stone-600 focus:outline-none focus:border-blue-500/50 focus:bg-stone-800 transition-colors"
+          className="min-w-0 flex-1 bg-stone-800/50 border border-stone-700/50 rounded-lg px-2.5 py-1 text-xs font-mono text-stone-300 placeholder-stone-600 focus:outline-none focus:border-blue-500/50 focus:bg-stone-800 transition-colors"
           placeholder="Args (hex)"
         />
       </div>
@@ -39,7 +41,7 @@ export function ScriptSelector({ script, onChange }: ScriptSelectorProps) {
           type="text"
           value={script.codeHash}
           onChange={(e) => onChange({ ...script, codeHash: e.target.value })}
-          className="flex-1 bg-stone-800/50 border border-stone-700/50 rounded-lg px-2.5 py-1 text-xs font-mono text-stone-300 placeholder-stone-600 focus:outline-none focus:border-blue-500/50 focus:bg-stone-800 transition-colors"
+          className="min-w-0 flex-1 bg-stone-800/50 border border-stone-700/50 rounded-lg px-2.5 py-1 text-xs font-mono text-stone-300 placeholder-stone-600 focus:outline-none focus:border-blue-500/50 focus:bg-stone-800 transition-colors"
           placeholder="code_hash (hex)"
         />
         <select
@@ -59,7 +61,7 @@ export function ScriptSelector({ script, onChange }: ScriptSelectorProps) {
       {showKnown && (
         <div className="border border-stone-700/50 rounded-lg overflow-hidden animate-fade-in">
           <div className="max-h-48 overflow-y-auto divide-y divide-stone-700/30">
-            {KNOWN_SCRIPTS.map((s) => (
+            {availableScripts.map((s) => (
               <button
                 key={s.name}
                 onClick={() => {

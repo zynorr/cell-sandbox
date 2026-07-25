@@ -8,19 +8,21 @@ export interface CellTemplate {
   color: string
   cells: CellState[]
   sendable?: boolean
+  requiresWalletLock?: boolean
 }
 
 export const CELL_TEMPLATES: CellTemplate[] = [
   {
     id: 'simple-transfer',
-    name: 'Simple Transfer',
-    description: 'Send CKB to any address — secp256k1 lock, no type script, 61 CKB',
+    name: 'CKB Transfer',
+    description: 'Create a standard 62 CKB output. The connected wallet fills the lock; replace it to send to another recipient.',
     category: 'token',
     color: 'bg-blue-600/20 text-blue-300 border-blue-600/30',
     sendable: true,
+    requiresWalletLock: true,
     cells: [
       {
-        capacity: '6100000000',
+        capacity: '6200000000',
         lock: {
           codeHash: '0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8',
           hashType: 'type',
@@ -35,10 +37,11 @@ export const CELL_TEMPLATES: CellTemplate[] = [
   {
     id: 'dao-deposit',
     name: 'DAO Deposit',
-    description: 'Deposit CKB into Nervos DAO for staking rewards — sendable',
+    description: 'Create a fresh 102 CKB Nervos DAO deposit with the required 8 zero data bytes.',
     category: 'dao',
     color: 'bg-amber-600/20 text-amber-300 border-amber-600/30',
     sendable: true,
+    requiresWalletLock: true,
     cells: [
       {
         capacity: '10200000000',
@@ -60,16 +63,15 @@ export const CELL_TEMPLATES: CellTemplate[] = [
   {
     id: 'always-success',
     name: 'Always Success',
-    description: 'Testing cell with no validation — always-success lock, no type, any data',
+    description: 'Design only: a real testing lock that anyone can spend. Never use it to hold valuable CKB.',
     category: 'demo',
     color: 'bg-stone-600/20 text-stone-300 border-stone-600/30',
-    sendable: true,
     cells: [
       {
         capacity: '6100000000',
         lock: {
-          codeHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          hashType: 'data',
+          codeHash: '0x3b521cc4b552f109d092d8cc468a8048acb53c5952dbe769d2b2f9cf6e47f7f1',
+          hashType: 'data1',
           args: '0x',
         },
         type: null,
@@ -81,12 +83,12 @@ export const CELL_TEMPLATES: CellTemplate[] = [
   {
     id: 'xudt-token',
     name: 'xUDT Token',
-    description: 'Design: xUDT fungible token — 1000 tokens, needs existing xUDT to send',
+    description: 'Design only: the first 16 data bytes hold a raw uint128 LE amount. The owner lock hash is a placeholder.',
     category: 'token',
     color: 'bg-violet-600/20 text-violet-300 border-violet-600/30',
     cells: [
       {
-        capacity: '14200000000',
+        capacity: '14300000000',
         lock: {
           codeHash: '0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8',
           hashType: 'type',
@@ -104,13 +106,13 @@ export const CELL_TEMPLATES: CellTemplate[] = [
   },
   {
     id: 'spore-dob',
-    name: 'Spore DOB v2',
-    description: 'Design: Spore Protocol digital object — needs existing Spore cell to send',
+    name: 'Spore v2 Cell',
+    description: 'Design only: Molecule-encoded text content with sample IDs. A real Spore ID is derived from its creation transaction.',
     category: 'nft',
     color: 'bg-pink-600/20 text-pink-300 border-pink-600/30',
     cells: [
       {
-        capacity: '18000000000',
+        capacity: '21500000000',
         lock: {
           codeHash: '0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8',
           hashType: 'type',
@@ -119,17 +121,17 @@ export const CELL_TEMPLATES: CellTemplate[] = [
         type: {
           codeHash: '0x685a60219309029d01310311dba953d67029170ca4848a4ff638e57002130a0d',
           hashType: 'data1',
-          args: '0x',
+          args: '0x1111111111111111111111111111111111111111111111111111111111111111',
         },
-        data: '0x7b226e616d65223a20226578616d706c6520646f62222c202264657363223a202268656c6c6f2066726f6d207468652063656c6c2073616e64626f78227d',
+        data: '0x58000000100000001e000000340000000a000000746578742f706c61696e1200000074657374696e6720706c61696e20746578742000000021a30f2b2f4927dbd6fd3917990af0dbb868438f44184e84d515f9af84ae4861',
         dataMode: 'hex',
       },
     ],
   },
   {
     id: 'omnilock',
-    name: 'Omnilock Account',
-    description: 'Design: Omnilock with ETH auth — supports ETH/BTC/Doge verification',
+    name: 'Omnilock Cell',
+    description: 'Design only: inspect an Ethereum-auth Omnilock. The sample authentication ID is not your connected wallet.',
     category: 'auth',
     color: 'bg-cyan-600/20 text-cyan-300 border-cyan-600/30',
     cells: [

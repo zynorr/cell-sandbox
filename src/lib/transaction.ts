@@ -1,16 +1,19 @@
 import { ccc } from '@ckb-ccc/ccc'
 import type { CellState, NetworkMode } from '@/types'
 import { getClient } from './ccc'
+import { NERVOS_DAO_CODE_HASH } from './cellValidation'
 
 export interface InspectedCell {
   index: number
   cell: CellState | null
   outPoint: { txHash: string; index: number } | null
+  isCellbase?: boolean
   unresolvedReason?: string
 }
 
 export interface InspectedTransaction {
   txHash: string
+  network: NetworkMode
   status: string
   blockNumber?: string
   inputCells: InspectedCell[]
@@ -19,6 +22,8 @@ export interface InspectedTransaction {
   outputCapacity: bigint
   fee: bigint | null
   cellDeps: number
+  cellbaseInputs: number
+  daoInputs: number
   unresolvedInputs: number
   explorerUrl: string
 }
@@ -62,6 +67,10 @@ function outPointToPlain(outPoint: ccc.OutPoint): { txHash: string; index: numbe
   }
 }
 
+export function isCellbaseOutPoint(outPoint: ccc.OutPoint): boolean {
+  return outPoint.txHash === `0x${'0'.repeat(64)}` && outPoint.index === BigInt(0xffffffff)
+}
+
 export async function loadTransactionFromChain(
   txHash: string,
   network: NetworkMode
@@ -84,6 +93,10 @@ export async function loadTransactionFromChain(
 
     const inputCells = await Promise.all(
       tx.inputs.map(async (input, index): Promise<InspectedCell> => {
+        if (isCellbaseOutPoint(input.previousOutput)) {
+          return { index, outPoint: null, cell: null, isCellbase: true }
+        }
+
         const outPoint = outPointToPlain(input.previousOutput)
 
         try {
@@ -128,18 +141,27 @@ export async function loadTransactionFromChain(
       (sum, item) => sum + BigInt(item.cell?.capacity ?? 0),
       BigInt(0)
     )
-    const unresolvedInputs = inputCells.filter((item) => !item.cell).length
+    const cellbaseInputs = inputCells.filter((item) => item.isCellbase).length
+    const daoInputs = inputCells.filter(
+      (item) => item.cell?.type?.codeHash.toLowerCase() === NERVOS_DAO_CODE_HASH
+    ).length
+    const unresolvedInputs = inputCells.filter((item) => !item.cell && !item.isCellbase).length
 
     return {
       txHash,
+      network,
       status: response.status,
       blockNumber: response.blockNumber?.toString(),
       inputCells,
       outputCells,
       inputCapacity,
       outputCapacity,
-      fee: unresolvedInputs === 0 ? inputCapacity - outputCapacity : null,
+      fee: unresolvedInputs === 0 && cellbaseInputs === 0 && daoInputs === 0
+        ? inputCapacity - outputCapacity
+        : null,
       cellDeps: tx.cellDeps.length,
+      cellbaseInputs,
+      daoInputs,
       unresolvedInputs,
       explorerUrl: getExplorerUrl(network, txHash),
     }

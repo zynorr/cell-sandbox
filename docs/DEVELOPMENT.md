@@ -56,7 +56,7 @@ Open [http://localhost:3000](http://localhost:3000).
      color: 'bg-green-600/20 text-green-300 border-green-600/30',
      cells: [
        {
-         capacity: '6100000000',
+         capacity: '6200000000',
          lock: { codeHash: '0x...', hashType: 'type', args: '0x' },
          type: null,
          data: '0x',
@@ -74,6 +74,7 @@ Open [http://localhost:3000](http://localhost:3000).
    - `name` — display name
    - `codeHash` — the script code hash
    - `hashType` — type, data, data1, or data2
+   - `roles` — whether the preset belongs in the lock picker or type picker
    - `description` — what the script does
    - `cellDep` — (optional) cell dep for the on-chain script deployment
 

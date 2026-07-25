@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import { useSandbox } from '@/store/sandbox'
-import { formatCapacity } from '@/lib/ccc'
+import { formatCapacity, formatCapacityExact } from '@/lib/ccc'
 import { txHashSchema } from '@/lib/schemas'
 import { KNOWN_SCRIPTS } from '@/lib/script'
 import { loadTransactionFromChain, type InspectedCell, type InspectedTransaction } from '@/lib/transaction'
-import { SAMPLE_PUDGE_TX_HASH } from '@/lib/examples'
+import { PUDGE_TRANSACTION_EXAMPLES, type PudgeTransactionExample } from '@/lib/examples'
 import type { ScriptState } from '@/types'
 
 function shortHash(value: string): string {
@@ -31,6 +31,10 @@ function dataLabel(data: string): string {
   return `${bytes} bytes`
 }
 
+function cellCount(count: number): string {
+  return `${count} Cell${count === 1 ? '' : 's'}`
+}
+
 function SummaryCard({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div className="rounded-lg border border-stone-800 bg-stone-950/60 p-3">
@@ -44,6 +48,20 @@ function CellSummary({ item, role }: { item: InspectedCell; role: 'input' | 'out
   const tone = role === 'input'
     ? 'border-blue-800/50 bg-blue-950/10'
     : 'border-emerald-800/50 bg-emerald-950/10'
+
+  if (item.isCellbase) {
+    return (
+      <div className={`rounded-lg border p-3 ${tone}`}>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold text-stone-200">Cellbase input #{item.index}</p>
+          <span className="text-[10px] uppercase tracking-wider text-blue-400">special input</span>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-stone-400">
+          The null outpoint does not reference a previous Cell. Cellbase outputs contain block rewards and collected transaction fees.
+        </p>
+      </div>
+    )
+  }
 
   if (!item.cell) {
     return (
@@ -98,6 +116,7 @@ export function TransactionInspector() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<InspectedTransaction | null>(null)
+  const visibleResult = result?.network === network ? result : null
 
   async function inspectHash(nextHash: string, targetNetwork = network) {
     const parsed = txHashSchema.safeParse(nextHash)
@@ -126,10 +145,10 @@ export function TransactionInspector() {
     await inspectHash(txHash)
   }
 
-  async function handleSampleTx() {
-    setTxHash(SAMPLE_PUDGE_TX_HASH)
+  async function handleSampleTx(sample: PudgeTransactionExample) {
+    setTxHash(sample.hash)
     if (network !== 'testnet') setNetwork('testnet')
-    await inspectHash(SAMPLE_PUDGE_TX_HASH, 'testnet')
+    await inspectHash(sample.hash, 'testnet')
   }
 
   return (
@@ -159,18 +178,24 @@ export function TransactionInspector() {
             </form>
           </div>
           <div className="rounded-lg border border-stone-800 bg-stone-950/60 px-3 py-2 text-xs leading-5 text-stone-500 lg:w-72">
-            A transaction is a state transition: live input Cells are consumed and new output Cells are created.
+            A transaction is a state transition: Cells referenced by its inputs are consumed and new output Cells are created.
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <button
-            onClick={handleSampleTx}
-            disabled={isLoading}
-            className="rounded-lg border border-blue-800/50 bg-blue-950/20 px-3 py-1.5 font-medium text-blue-200 transition-colors hover:border-blue-700 hover:bg-blue-950/40 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Open sample Pudge transaction
-          </button>
-          <span className="font-mono text-[10px] text-stone-600">{shortHash(SAMPLE_PUDGE_TX_HASH)}</span>
+          <span className="mr-1 text-stone-500">Pudge testnet examples</span>
+          {PUDGE_TRANSACTION_EXAMPLES.map((sample) => (
+            <button
+              key={sample.id}
+              type="button"
+              onClick={() => handleSampleTx(sample)}
+              disabled={isLoading}
+              title={`${sample.label}: ${sample.hash}`}
+              className="rounded-lg border border-blue-800/50 bg-blue-950/20 px-3 py-1.5 font-medium text-blue-200 transition-colors hover:border-blue-700 hover:bg-blue-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {sample.label}
+              <span className="ml-2 text-blue-400">{sample.summary}</span>
+            </button>
+          ))}
         </div>
         {error && (
           <div className="mt-3 rounded-lg border border-red-800/40 bg-red-950/20 px-3 py-2 text-xs text-red-300">
@@ -179,7 +204,7 @@ export function TransactionInspector() {
         )}
       </div>
 
-      {!result && !isLoading && !error && (
+      {!visibleResult && !isLoading && !error && (
         <div className="grid gap-3 md:grid-cols-4">
           <SummaryCard label="No transaction loaded" value="Paste or sample" tone="text-stone-300" />
           <SummaryCard label="Inputs" value="Waiting" tone="text-blue-300" />
@@ -194,19 +219,31 @@ export function TransactionInspector() {
         </div>
       )}
 
-      {result && (
+      {visibleResult && (
         <>
           <div className="grid gap-3 md:grid-cols-4">
-            <SummaryCard label="Inputs" value={`${result.inputCells.length} Cells`} tone="text-blue-300" />
-            <SummaryCard label="Outputs" value={`${result.outputCells.length} Cells`} tone="text-emerald-300" />
+            <SummaryCard
+              label="Inputs"
+              value={visibleResult.cellbaseInputs > 0 ? `${visibleResult.cellbaseInputs} cellbase` : cellCount(visibleResult.inputCells.length)}
+              tone="text-blue-300"
+            />
+            <SummaryCard label="Outputs" value={cellCount(visibleResult.outputCells.length)} tone="text-emerald-300" />
             <SummaryCard
               label="Capacity Flow"
-              value={`${formatCapacity(result.inputCapacity)} -> ${formatCapacity(result.outputCapacity)}`}
+              value={visibleResult.cellbaseInputs > 0
+                ? `New issuance -> ${formatCapacityExact(visibleResult.outputCapacity)}`
+                : visibleResult.daoInputs > 0
+                  ? `DAO: ${formatCapacityExact(visibleResult.inputCapacity)} -> ${formatCapacityExact(visibleResult.outputCapacity)}`
+                : `${formatCapacityExact(visibleResult.inputCapacity)} -> ${formatCapacityExact(visibleResult.outputCapacity)}`}
               tone="text-stone-200"
             />
             <SummaryCard
               label="Fee"
-              value={result.fee === null ? 'Partial inputs' : formatCapacity(result.fee)}
+              value={visibleResult.cellbaseInputs > 0
+                ? 'Not applicable'
+                : visibleResult.daoInputs > 0
+                  ? 'DAO-adjusted'
+                : visibleResult.fee === null ? 'Partial inputs' : formatCapacityExact(visibleResult.fee)}
               tone="text-amber-300"
             />
           </div>
@@ -214,15 +251,17 @@ export function TransactionInspector() {
           <div className="rounded-lg border border-stone-800 bg-stone-950/40 p-3">
             <div className="flex flex-col gap-2 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap gap-x-4 gap-y-1">
-                <span>Status: <span className="text-stone-300">{result.status}</span></span>
-                <span>Cell deps: <span className="text-stone-300">{result.cellDeps}</span></span>
-                {result.blockNumber && <span>Block: <span className="text-stone-300">#{result.blockNumber}</span></span>}
-                {result.unresolvedInputs > 0 && (
-                  <span className="text-amber-300">{result.unresolvedInputs} unresolved input{result.unresolvedInputs === 1 ? '' : 's'}</span>
+                <span>Status: <span className="text-stone-300">{visibleResult.status}</span></span>
+                <span>Cell deps: <span className="text-stone-300">{visibleResult.cellDeps}</span></span>
+                {visibleResult.cellbaseInputs > 0 && <span className="text-blue-300">Cellbase transaction</span>}
+                {visibleResult.daoInputs > 0 && <span className="text-amber-300">DAO capacity adjustment</span>}
+                {visibleResult.blockNumber && <span>Block: <span className="text-stone-300">#{visibleResult.blockNumber}</span></span>}
+                {visibleResult.unresolvedInputs > 0 && (
+                  <span className="text-amber-300">{visibleResult.unresolvedInputs} unresolved input{visibleResult.unresolvedInputs === 1 ? '' : 's'}</span>
                 )}
               </div>
               <a
-                href={result.explorerUrl}
+                href={visibleResult.explorerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-stone-400 transition-colors hover:text-stone-200"
@@ -235,11 +274,11 @@ export function TransactionInspector() {
           <div className="grid gap-4 xl:grid-cols-2">
             <section className="rounded-lg border border-stone-800 bg-stone-950/40 p-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-blue-200">Input Cells Consumed</h3>
-                <span className="text-[10px] uppercase tracking-wider text-stone-500">old state</span>
+                <h3 className="text-sm font-semibold text-blue-200">Transaction Inputs</h3>
+                <span className="text-[10px] uppercase tracking-wider text-stone-500">previous state</span>
               </div>
               <div className="mt-3 space-y-2">
-                {result.inputCells.map((item) => (
+                {visibleResult.inputCells.map((item) => (
                   <CellSummary key={`${item.outPoint?.txHash}-${item.outPoint?.index}-${item.index}`} item={item} role="input" />
                 ))}
               </div>
@@ -251,7 +290,7 @@ export function TransactionInspector() {
                 <span className="text-[10px] uppercase tracking-wider text-stone-500">new state</span>
               </div>
               <div className="mt-3 space-y-2">
-                {result.outputCells.map((item) => (
+                {visibleResult.outputCells.map((item) => (
                   <CellSummary key={`${item.outPoint?.txHash}-${item.outPoint?.index}-${item.index}`} item={item} role="output" />
                 ))}
               </div>

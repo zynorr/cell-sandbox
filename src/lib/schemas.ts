@@ -26,7 +26,6 @@ export const cellStateArraySchema = z.array(cellStateSchema)
 
 // ── Outpoint Schema (for txHash:index input) ──
 
-const hexRegex = /^0x[0-9a-fA-F]+$/
 const txHashRegex = /^0x[0-9a-fA-F]{64}$/
 
 export const txHashSchema = z
@@ -36,20 +35,24 @@ export const txHashSchema = z
     message: 'Transaction hash must start with 0x and contain 32 bytes of hex.',
   })
 
-export const outpointSchema = z.string().transform((val, ctx) => {
+export const outpointSchema = z.string().trim().transform((val, ctx) => {
   const parts = val.split(':')
   if (parts.length !== 2) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Format: txHash:index (e.g. 0xabcd...:0)' })
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter an outpoint as a full transaction hash followed by :index.' })
     return z.NEVER
   }
   const [txHash, indexStr] = parts
-  if (!hexRegex.test(txHash)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'txHash must be a valid 0x-prefixed hex string' })
+  if (!txHashRegex.test(txHash)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Transaction hash must start with 0x and contain 32 bytes of hex.' })
     return z.NEVER
   }
-  const index = parseInt(indexStr, 10)
-  if (isNaN(index)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Index must be a number' })
+  if (!/^\d+$/.test(indexStr)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Output index must be a non-negative whole number.' })
+    return z.NEVER
+  }
+  const index = Number(indexStr)
+  if (!Number.isSafeInteger(index)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Output index is too large.' })
     return z.NEVER
   }
   return { txHash, index }
