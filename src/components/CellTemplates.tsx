@@ -1,7 +1,7 @@
 'use client'
 
 import { useSandbox } from '@/store/sandbox'
-import { CELL_TEMPLATES } from '@/lib/templates'
+import { getCellTemplates, type CellTemplate } from '@/lib/templates'
 import { formatCapacityExact } from '@/lib/ccc'
 
 export function CellTemplates() {
@@ -12,13 +12,15 @@ export function CellTemplates() {
   const wallet = useSandbox((s) => s.wallet)
   const viewMode = useSandbox((s) => s.viewMode)
   const setViewMode = useSandbox((s) => s.setViewMode)
+  const network = useSandbox((s) => s.network)
+  const templates = getCellTemplates(network)
 
   const sections = [
-    { label: 'Build templates', templates: CELL_TEMPLATES.filter((template) => template.sendable) },
-    { label: 'Design examples', templates: CELL_TEMPLATES.filter((template) => !template.sendable) },
+    { label: 'Build templates', templates: templates.filter((template) => template.sendable) },
+    { label: 'Design examples', templates: templates.filter((template) => !template.sendable) },
   ]
 
-  function handleApply(tpl: typeof CELL_TEMPLATES[number]) {
+  function handleApply(tpl: CellTemplate) {
     const applied = tpl.cells.map((c) => {
       if (tpl.requiresWalletLock && wallet.lockScript && (!c.lock.args || c.lock.args === '0x')) {
         return { ...c, lock: { ...wallet.lockScript } }
@@ -30,9 +32,9 @@ export function CellTemplates() {
     if (viewMode === 'build' && !tpl.sendable) setViewMode('design')
   }
 
-  function statusLabel(tpl: typeof CELL_TEMPLATES[number]): string {
+  function statusLabel(tpl: CellTemplate): string {
     if (!tpl.sendable) return viewMode === 'build' ? 'Opens Design' : 'Design only'
-    if (tpl.requiresWalletLock && !wallet.lockScript) return 'Wallet required'
+    if (tpl.requiresWalletLock && !wallet.lockScript) return 'Wallet fills lock'
     return viewMode === 'build' ? 'Adds output' : 'Build ready'
   }
 

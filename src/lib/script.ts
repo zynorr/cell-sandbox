@@ -1,115 +1,170 @@
-import type { ScriptState, KnownScript } from '@/types'
+import { ccc } from '@ckb-ccc/ccc'
+import { ClientPublicMainnet, ClientPublicTestnet } from '@ckb-ccc/core'
+import type { KnownScript, NetworkMode, ScriptState } from '@/types'
 
-// Pudge testnet deployment outpoints used by the design registry.
-// Build Tx uses CCC's network-aware registry for supported system scripts.
-export const KNOWN_SCRIPTS: KnownScript[] = [
+interface ScriptDefinition {
+  cccId: ccc.KnownScript
+  name: string
+  roles: Array<'lock' | 'type'>
+  description: string
+}
+
+const SCRIPT_DEFINITIONS: ScriptDefinition[] = [
   {
+    cccId: ccc.KnownScript.Secp256k1Blake160,
     name: 'Secp256k1 Blake160 SighashAll',
-    codeHash: '0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8',
-    hashType: 'type',
     roles: ['lock'],
     description: 'Standard CKB lock using a 20-byte public-key hash',
   },
   {
+    cccId: ccc.KnownScript.Secp256k1Multisig,
     name: 'Secp256k1 Multisig',
-    codeHash: '0x5c5069eb0857efc65e1bca0c07df34c31663b3622fd3876c876320fc9634e2a8',
-    hashType: 'type',
     roles: ['lock'],
-    description: 'Multisignature secp256k1 lock',
+    description: 'Legacy secp256k1 multisignature lock',
   },
   {
-    name: 'xUDT',
-    codeHash: '0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb',
-    hashType: 'type',
-    roles: ['type'],
-    description: 'Extensible UDT type script - Pudge deployment',
-    cellDep: {
-      txHash: '0xbf6fb538763efec2a70a6a3dcb7242787087e1030c4e7d86585bc63a9d337f5f',
-      index: 0,
-      depType: 'code',
-    },
+    cccId: ccc.KnownScript.Secp256k1MultisigV2,
+    name: 'Secp256k1 Multisig V2',
+    roles: ['lock'],
+    description: 'Current CCC secp256k1 multisignature lock',
   },
   {
-    name: 'Spore v2',
-    codeHash: '0x685a60219309029d01310311dba953d67029170ca4848a4ff638e57002130a0d',
-    hashType: 'data1',
-    roles: ['type'],
-    description: 'Spore Protocol digital-object type script - Pudge deployment',
-    cellDep: {
-      txHash: '0x5e8d2a517d50fd4bb4d01737a7952a1f1d35c8afc77240695bb569cd7d9d5a1f',
-      index: 0,
-      depType: 'code',
-    },
+    cccId: ccc.KnownScript.AnyoneCanPay,
+    name: 'Anyone Can Pay',
+    roles: ['lock'],
+    description: 'Lock that permits deposits without the owner signature',
   },
   {
+    cccId: ccc.KnownScript.JoyId,
+    name: 'JoyID',
+    roles: ['lock'],
+    description: 'Passkey-based ownership lock',
+  },
+  {
+    cccId: ccc.KnownScript.OmniLock,
     name: 'Omnilock',
-    codeHash: '0xf329effd1c475a2978453c8600e1eaf0bc2087ee093c3ee64cc96ec6847752cb',
-    hashType: 'type',
     roles: ['lock'],
-    description: 'Interoperable authentication lock - Pudge deployment',
-    cellDep: {
-      txHash: '0xec18bf0d857c981c3d1f4e17999b9b90c484b303378e94de1a57b0872f5d4602',
-      index: 0,
-      depType: 'code',
-    },
+    description: 'Interoperable authentication lock',
   },
   {
+    cccId: ccc.KnownScript.NostrLock,
+    name: 'Nostr Lock',
+    roles: ['lock'],
+    description: 'Nostr public-key ownership lock',
+  },
+  {
+    cccId: ccc.KnownScript.AlwaysSuccess,
     name: 'Always Success',
-    codeHash: '0x3b521cc4b552f109d092d8cc468a8048acb53c5952dbe769d2b2f9cf6e47f7f1',
-    hashType: 'data1',
     roles: ['lock'],
-    description: 'Anyone-can-spend testing lock - never use for valuable CKB',
-    cellDep: {
-      txHash: '0xb4f171c9c9caf7401f54a8e56225ae21d95032150a87a4678eac3f66a3137b93',
-      index: 0,
-      depType: 'code',
-    },
+    description: 'Anyone-can-spend testing lock; never use for valuable CKB',
   },
   {
+    cccId: ccc.KnownScript.NervosDao,
     name: 'Nervos DAO',
-    codeHash: '0x82d76d1b75fe2fd9a27dfbaa65a039221a380d76c926f378d3f81cf3e7e13f2e',
-    hashType: 'type',
     roles: ['type'],
     description: 'Nervos DAO deposit and two-phase withdrawal type script',
-    cellDep: {
-      txHash: '0x8f8c79eb6671709633fe6a46de93c0fedc9c1b8a6527a18d3983879542635c9f',
-      index: 2,
-      depType: 'code',
-    },
   },
   {
-    name: 'Cheque',
-    codeHash: '0x60d5f39efce409c587cb9ea359cefdead650ca128f0bd9cb3855348f98c70d5b',
-    hashType: 'type',
-    roles: ['lock'],
-    description: 'Cheque lock for receiver claims and delayed sender withdrawals',
-    cellDep: {
-      txHash: '0x7f96858be0a9d584b4a9ea190e0420835156a6010a5fde15ffcdc9d9c721ccab',
-      index: 0,
-      depType: 'depGroup',
-    },
-  },
-  {
+    cccId: ccc.KnownScript.TypeId,
     name: 'Type ID',
-    codeHash: '0x00000000000000000000000000000000000000000000000000545950455f4944',
-    hashType: 'type',
     roles: ['type'],
     description: 'Singleton type identity preserved across Cell updates',
   },
+  {
+    cccId: ccc.KnownScript.SUdt,
+    name: 'sUDT',
+    roles: ['type'],
+    description: 'Simple user-defined token type script',
+  },
+  {
+    cccId: ccc.KnownScript.XUdt,
+    name: 'xUDT',
+    roles: ['type'],
+    description: 'Extensible user-defined token type script',
+  },
+  {
+    cccId: ccc.KnownScript.UniqueType,
+    name: 'Unique Type',
+    roles: ['type'],
+    description: 'Unique on-chain identity type script',
+  },
+  {
+    cccId: ccc.KnownScript.DidCkb,
+    name: 'DID CKB',
+    roles: ['type'],
+    description: 'Decentralized identity type script',
+  },
 ]
 
-export function getScriptCellDep(codeHash: string): { txHash: string; index: number; depType: 'code' | 'depGroup' } | undefined {
-  return KNOWN_SCRIPTS.find((script) => script.codeHash.toLowerCase() === codeHash.toLowerCase())?.cellDep
+type PublicClient = ClientPublicTestnet | ClientPublicMainnet
+
+const PUBLIC_CLIENTS: Record<NetworkMode, PublicClient> = {
+  testnet: new ClientPublicTestnet(),
+  mainnet: new ClientPublicMainnet(),
 }
 
-export function getKnownScript(name: string): ScriptState | undefined {
-  const found = KNOWN_SCRIPTS.find(
-    (script) => script.name.toLowerCase() === name.toLowerCase()
-  )
-  if (!found) return undefined
+function getCccScriptInfo(network: NetworkMode, id: ccc.KnownScript): ccc.ScriptInfo | undefined {
+  const client = PUBLIC_CLIENTS[network]
+  const script = client.scripts[id]
+  return script ? ccc.ScriptInfo.from(script) : undefined
+}
+
+export function getKnownScripts(network: NetworkMode = 'testnet'): KnownScript[] {
+  return SCRIPT_DEFINITIONS.flatMap((definition) => {
+    const info = getCccScriptInfo(network, definition.cccId)
+    if (!info) return []
+
+    return [{
+      ...definition,
+      codeHash: info.codeHash,
+      hashType: info.hashType,
+    }]
+  })
+}
+
+export function getKnownScriptById(
+  id: ccc.KnownScript,
+  network: NetworkMode = 'testnet',
+  args = '0x'
+): ScriptState {
+  const info = getCccScriptInfo(network, id)
+  if (!info) throw new Error(`CCC has no ${id} deployment for ${network}.`)
+
   return {
-    codeHash: found.codeHash,
-    hashType: found.hashType,
-    args: '',
+    codeHash: info.codeHash,
+    hashType: info.hashType,
+    args: ccc.hexFrom(args),
   }
+}
+
+export function findKnownScript(
+  script: Pick<ScriptState, 'codeHash' | 'hashType'>,
+  network?: NetworkMode
+): KnownScript | undefined {
+  const networks: NetworkMode[] = network
+    ? [network]
+    : ['testnet', 'mainnet']
+
+  for (const current of networks) {
+    const found = getKnownScripts(current).find(
+      (known) => known.codeHash.toLowerCase() === script.codeHash.toLowerCase()
+    )
+    if (found) return found
+  }
+}
+
+export function isKnownScript(
+  script: Pick<ScriptState, 'codeHash' | 'hashType'>,
+  id: ccc.KnownScript,
+  network?: NetworkMode
+): boolean {
+  const networks: NetworkMode[] = network ? [network] : ['testnet', 'mainnet']
+  return networks.some((current) => {
+    const known = getCccScriptInfo(current, id)
+    return Boolean(
+      known &&
+      known.codeHash.toLowerCase() === script.codeHash.toLowerCase() &&
+      known.hashType === script.hashType
+    )
+  })
 }

@@ -4,14 +4,14 @@ import { useSandbox } from '@/store/sandbox'
 import { ScriptSelector } from './ScriptSelector'
 import { DataEditor } from './DataEditor'
 import { DataPreview } from './DataPreview'
-import { estimateFreeCapacity, estimateOccupiedBytes, estimateOccupiedCapacity } from '@/lib/cellMetrics'
+import { getCellFreeCapacity, getCellOccupiedBytes, getCellOccupiedCapacity } from '@/lib/cellMetrics'
 import { formatCapacity, formatCapacityExact } from '@/lib/ccc'
 import {
   getLockScriptAdvisory,
   getLockScriptIssue,
   getTypeScriptAdvisory,
   getTypeScriptIssue,
-  SECP256K1_BLAKE160_CODE_HASH,
+  isWalletFillableLock,
 } from '@/lib/cellValidation'
 
 function formatCapacityInput(capacity: string): string {
@@ -27,6 +27,7 @@ export function CellEditor() {
   const selectedIndex = useSandbox((s) => s.selectedIndex)
   const updateCell = useSandbox((s) => s.updateCell)
   const removeCell = useSandbox((s) => s.removeCell)
+  const network = useSandbox((s) => s.network)
 
   if (selectedIndex === null || !cells[selectedIndex]) {
     return (
@@ -40,16 +41,14 @@ export function CellEditor() {
   }
 
   const cell = cells[selectedIndex]
-  const occupiedBytes = estimateOccupiedBytes(cell)
-  const occupiedCapacity = estimateOccupiedCapacity(cell)
-  const freeCapacity = estimateFreeCapacity(cell)
-  const lockIssue = cell.lock.codeHash ? getLockScriptIssue(cell.lock) : null
-  const lockAdvisory = cell.lock.codeHash ? getLockScriptAdvisory(cell.lock) : null
-  const typeIssue = cell.type?.codeHash ? getTypeScriptIssue(cell.type) : null
-  const typeAdvisory = getTypeScriptAdvisory(cell.type)
-  const walletLockPending =
-    cell.lock.codeHash.toLowerCase() === SECP256K1_BLAKE160_CODE_HASH &&
-    (!cell.lock.args || cell.lock.args === '0x')
+  const occupiedBytes = getCellOccupiedBytes(cell)
+  const occupiedCapacity = getCellOccupiedCapacity(cell)
+  const freeCapacity = getCellFreeCapacity(cell)
+  const lockIssue = cell.lock.codeHash ? getLockScriptIssue(cell.lock, network) : null
+  const lockAdvisory = cell.lock.codeHash ? getLockScriptAdvisory(cell.lock, network) : null
+  const typeIssue = cell.type?.codeHash ? getTypeScriptIssue(cell.type, network) : null
+  const typeAdvisory = getTypeScriptAdvisory(cell.type, network)
+  const walletLockPending = isWalletFillableLock(cell.lock, network)
   const occupiedAfterWallet = occupiedCapacity + BigInt(20 * 100000000)
   const freeAfterWallet = freeCapacity - BigInt(20 * 100000000)
 
@@ -84,17 +83,17 @@ export function CellEditor() {
         </p>
         <div className="grid grid-cols-2 gap-2 rounded-lg border border-stone-800 bg-stone-950/50 p-2 text-[11px]">
           <div>
-            <p className="text-stone-600">Est. occupied</p>
+            <p className="text-stone-600">Occupied capacity</p>
             <p className="font-mono text-stone-300">{formatCapacity(occupiedCapacity)}</p>
           </div>
           <div>
-            <p className="text-stone-600">Est. free</p>
+            <p className="text-stone-600">Free capacity</p>
             <p className={`font-mono ${freeCapacity >= BigInt(0) ? 'text-emerald-300' : 'text-red-300'}`}>
               {formatCapacity(freeCapacity)}
             </p>
           </div>
           <div className="col-span-2 text-stone-600">
-            Estimated occupied size: <span className="font-mono text-stone-400">{occupiedBytes} bytes</span>
+            Occupied size: <span className="font-mono text-stone-400">{occupiedBytes} bytes</span>. Calculated from the serialized Cell fields by CCC.
           </div>
           {walletLockPending && (
             <div className="col-span-2 border-t border-stone-800 pt-2 text-stone-500">
@@ -120,7 +119,10 @@ export function CellEditor() {
           onChange={(lock) => updateCell(selectedIndex, { lock })}
         />
         {lockIssue && (
-          <p className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-2.5 py-2 text-[11px] leading-4 text-amber-300">
+          <p className={`rounded-lg border px-2.5 py-2 text-[11px] leading-4 ${walletLockPending
+            ? 'border-blue-800/30 bg-blue-950/20 text-blue-300'
+            : 'border-amber-800/30 bg-amber-950/20 text-amber-300'
+          }`}>
             {lockIssue}
           </p>
         )}
@@ -183,7 +185,7 @@ export function CellEditor() {
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-stone-400">Output Data</label>
         <p className="text-[11px] leading-4 text-stone-600">
-          Bytes at the matching index in the transaction&apos;s outputs_data array. The preview interprets common xUDT, DAO, and Spore encodings.
+          Bytes at the matching index in the transaction&apos;s outputs_data array. The preview interprets common xUDT and DAO encodings.
         </p>
         <DataEditor
           value={cell.data}

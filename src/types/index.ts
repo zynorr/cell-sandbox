@@ -36,12 +36,12 @@ export interface CellDep {
 }
 
 export interface KnownScript {
+  cccId: string
   name: string
   codeHash: string
   hashType: 'type' | 'data' | 'data1' | 'data2'
   roles: Array<'lock' | 'type'>
   description: string
-  cellDep?: CellDep
 }
 
 export interface TransactionFlow {

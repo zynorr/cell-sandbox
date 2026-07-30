@@ -42,6 +42,7 @@ export function Toolbar() {
   const [localError, setLocalError] = useState<string | null>(null)
   const [copied, setCopied] = useState<'code' | 'link' | null>(null)
   const [codePreview, setCodePreview] = useState(false)
+  const [showMoreTools, setShowMoreTools] = useState(false)
 
   function handleLoad(e: React.FormEvent) {
     e.preventDefault()
@@ -77,49 +78,6 @@ export function Toolbar() {
 
   return (
     <div className="space-y-2.5">
-      <form onSubmit={handleLoad} className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-end">
-        <div className="min-w-0 flex-1">
-          <label htmlFor="cell-outpoint-input" className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
-            Load Cell by Outpoint
-          </label>
-          <input
-            id="cell-outpoint-input"
-            type="text"
-            value={store.loadOutpointInput}
-            onChange={(e) => {
-              store.setLoadOutpointInput(e.target.value)
-              setLocalError(null)
-              if (store.error) store.clearError()
-            }}
-            placeholder={`txHash:index  (${store.network})`}
-            className="mt-1 w-full rounded-lg border border-stone-700/50 bg-stone-800/50 px-3 py-1.5 font-mono text-xs text-stone-300 placeholder-stone-600 transition-colors focus:border-blue-500/50 focus:bg-stone-800 focus:outline-none"
-          />
-          <p className="mt-1 text-[10px] text-stone-600">
-            Use Inspect Tx for a full transaction hash.
-          </p>
-        </div>
-        <button
-          type="submit"
-          disabled={store.isLoading}
-          className="w-full rounded-lg bg-stone-700 px-3 py-1.5 text-xs font-medium text-stone-200 transition-colors hover:bg-stone-600 disabled:cursor-not-allowed disabled:opacity-40 min-[480px]:mb-5 min-[480px]:w-auto"
-        >
-          {store.isLoading ? (
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-stone-400 animate-pulse-soft" />
-              Loading
-            </span>
-          ) : (
-            'Load Cell'
-          )}
-        </button>
-      </form>
-
-      {inputError && (
-        <div className="text-xs text-red-400 bg-red-900/15 border border-red-800/20 rounded-lg px-3 py-1.5 animate-fade-in">
-          {inputError}
-        </div>
-      )}
-
       <div className="flex gap-1.5 flex-wrap">
         <button
           onClick={() => store.addCell()}
@@ -129,51 +87,112 @@ export function Toolbar() {
           New Cell
         </button>
         <button
-          onClick={handleShare}
-          className="flex items-center gap-1.5 text-xs font-medium bg-stone-700 hover:bg-stone-600 text-stone-200 px-3 py-1.5 rounded-lg transition-all active:scale-95"
+          type="button"
+          aria-expanded={showMoreTools}
+          onClick={() => setShowMoreTools((visible) => !visible)}
+          className="text-xs font-medium text-stone-300 transition-colors hover:text-white"
         >
-          {copied === 'link' ? (
-            <span className="text-green-400">Copied!</span>
-          ) : (
-            <>
-              <LinkIcon />
-              Copy Link
-            </>
-          )}
-        </button>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-1.5 text-xs font-medium bg-stone-700 hover:bg-stone-600 text-stone-200 px-3 py-1.5 rounded-lg transition-all active:scale-95"
-        >
-          {copied === 'code' ? (
-            <span className="text-green-400">Copied!</span>
-          ) : (
-            <>
-              <CodeIcon />
-              Export Code
-            </>
-          )}
-        </button>
-        <button
-          onClick={store.resetCells}
-          className="flex items-center gap-1.5 text-xs font-medium bg-stone-800 hover:bg-stone-700 text-stone-400 border border-stone-700/50 px-3 py-1.5 rounded-lg transition-all active:scale-95"
-        >
-          <ResetIcon />
-          Reset
+          {showMoreTools ? 'Hide tools' : 'More tools'}
         </button>
       </div>
 
-      {codePreview && (
-        <div className="relative animate-fade-in">
-          <pre className="text-xs text-stone-400 bg-stone-800/30 border border-stone-700/50 rounded-lg p-3 overflow-x-auto max-h-48 font-mono">
-            {store.exportAsCode()}
-          </pre>
-          <button
-            onClick={() => setCodePreview(false)}
-            className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors text-xs"
-          >
-            ✕
-          </button>
+      {showMoreTools && (
+        <div className="space-y-2.5 border-t border-stone-800 pt-3">
+          <form onSubmit={handleLoad} className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-end">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="cell-outpoint-input" className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                Load an on-chain Cell
+              </label>
+              <input
+                id="cell-outpoint-input"
+                type="text"
+                value={store.loadOutpointInput}
+                onChange={(e) => {
+                  store.setLoadOutpointInput(e.target.value)
+                  setLocalError(null)
+                  if (store.error) store.clearError()
+                }}
+                placeholder={`txHash:index  (${store.network})`}
+                className="mt-1 w-full rounded-lg border border-stone-700/50 bg-stone-800/50 px-3 py-1.5 font-mono text-xs text-stone-300 placeholder-stone-600 transition-colors focus:border-blue-500/50 focus:bg-stone-800 focus:outline-none"
+              />
+              <p className="mt-1 text-[10px] text-stone-600">
+                Enter an outpoint as transaction hash:index. Use Inspect Tx for a transaction hash by itself.
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={store.isLoading}
+              className="w-full rounded-lg bg-stone-700 px-3 py-1.5 text-xs font-medium text-stone-200 transition-colors hover:bg-stone-600 disabled:cursor-not-allowed disabled:opacity-40 min-[480px]:mb-5 min-[480px]:w-auto"
+            >
+              {store.isLoading ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-stone-400 animate-pulse-soft" />
+                  Loading
+                </span>
+              ) : (
+                'Load Cell'
+              )}
+            </button>
+          </form>
+
+          {inputError && (
+            <div className="text-xs text-red-400 bg-red-900/15 border border-red-800/20 rounded-lg px-3 py-1.5 animate-fade-in">
+              {inputError}
+            </div>
+          )}
+
+          <div className="flex gap-1.5 flex-wrap">
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-1.5 text-xs font-medium bg-stone-700 hover:bg-stone-600 text-stone-200 px-3 py-1.5 rounded-lg transition-all active:scale-95"
+            >
+              {copied === 'link' ? (
+                <span className="text-green-400">Copied!</span>
+              ) : (
+                <>
+                  <LinkIcon />
+                  Copy Link
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 text-xs font-medium bg-stone-700 hover:bg-stone-600 text-stone-200 px-3 py-1.5 rounded-lg transition-all active:scale-95"
+            >
+              {copied === 'code' ? (
+                <span className="text-green-400">Copied!</span>
+              ) : (
+                <>
+                  <CodeIcon />
+                  Export Code
+                </>
+              )}
+            </button>
+            <button
+              onClick={store.resetCells}
+              className="flex items-center gap-1.5 text-xs font-medium bg-stone-800 hover:bg-stone-700 text-stone-400 border border-stone-700/50 px-3 py-1.5 rounded-lg transition-all active:scale-95"
+            >
+              <ResetIcon />
+              Reset
+            </button>
+          </div>
+
+          {codePreview && (
+            <div className="relative animate-fade-in">
+              <pre className="text-xs text-stone-400 bg-stone-800/30 border border-stone-700/50 rounded-lg p-3 overflow-x-auto max-h-48 font-mono">
+                {store.exportAsCode()}
+              </pre>
+              <button
+                type="button"
+                aria-label="Close code preview"
+                title="Close code preview"
+                onClick={() => setCodePreview(false)}
+                className="absolute top-2 right-2 text-stone-600 hover:text-stone-400 transition-colors text-xs"
+              >
+                X
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

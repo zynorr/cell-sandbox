@@ -21,7 +21,7 @@ describe('ScriptSelector', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Select Script' }))
 
     expect(screen.getByText('xUDT')).toBeInTheDocument()
-    expect(screen.getByText('Spore v2')).toBeInTheDocument()
+    expect(screen.getByText('sUDT')).toBeInTheDocument()
     expect(screen.getByText('Type ID')).toBeInTheDocument()
     expect(screen.queryByText('Always Success')).not.toBeInTheDocument()
   })

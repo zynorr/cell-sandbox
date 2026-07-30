@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import type { ScriptState } from '@/types'
-import { KNOWN_SCRIPTS } from '@/lib/script'
+import { getKnownScripts } from '@/lib/script'
+import { useSandbox } from '@/store/sandbox'
 
 interface ScriptSelectorProps {
   script: ScriptState
@@ -12,7 +13,8 @@ interface ScriptSelectorProps {
 
 export function ScriptSelector({ script, role, onChange }: ScriptSelectorProps) {
   const [showKnown, setShowKnown] = useState(false)
-  const availableScripts = KNOWN_SCRIPTS.filter((known) => known.roles.includes(role))
+  const network = useSandbox((state) => state.network)
+  const availableScripts = getKnownScripts(network).filter((known) => known.roles.includes(role))
 
   const selectedKnown = availableScripts.find(
     (known) => known.codeHash === script.codeHash && known.hashType === script.hashType

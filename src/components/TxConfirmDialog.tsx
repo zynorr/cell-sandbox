@@ -29,6 +29,7 @@ export function TxConfirmDialog() {
   const setShowConfirmDialog = useSandbox((s) => s.setShowConfirmDialog)
   const cells = useSandbox((s) => s.cells)
   const txOutputs = useSandbox((s) => s.txOutputs)
+  const network = useSandbox((s) => s.network)
 
   if (!showConfirmDialog) return null
 
@@ -38,7 +39,7 @@ export function TxConfirmDialog() {
   const outputSelections = txOutputs
     .map((index) => ({ index, cell: cells[index] }))
     .filter((selection): selection is { index: number; cell: CellState } => selection.cell !== undefined)
-  const outputIssues = validateOutputCells(outputSelections)
+  const outputIssues = validateOutputCells(outputSelections, network)
   const totalCapacity = outputCells.reduce(
     (sum, cell) => sum + capacityOrZero(cell.capacity),
     BigInt(0)

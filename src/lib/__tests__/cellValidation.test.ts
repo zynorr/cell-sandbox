@@ -4,6 +4,7 @@ import {
   MAX_CELL_CAPACITY,
   NERVOS_DAO_CODE_HASH,
   SECP256K1_BLAKE160_CODE_HASH,
+  isWalletFillableLock,
   validateOutputCells,
 } from '@/lib/cellValidation'
 import type { CellState } from '@/types'
@@ -24,6 +25,16 @@ function outputCell(patch: Partial<CellState> = {}): CellState {
 }
 
 describe('validateOutputCells', () => {
+  it('recognizes an empty standard lock as wallet-fillable', () => {
+    expect(isWalletFillableLock({
+      codeHash: SECP256K1_BLAKE160_CODE_HASH,
+      hashType: 'type',
+      args: '0x',
+    })).toBe(true)
+
+    expect(isWalletFillableLock(outputCell().lock)).toBe(false)
+  })
+
   it('accepts a complete secp256k1 output', () => {
     expect(validateOutputCells([{ cell: outputCell(), index: 0 }])).toEqual([])
   })
@@ -42,7 +53,7 @@ describe('validateOutputCells', () => {
     ])
 
     expect(issues).toEqual(expect.arrayContaining([
-      'Cell #1 capacity is below its estimated occupied capacity.',
+      'Cell #1 capacity is below its occupied capacity.',
       'Cell #1 data must be even-length, 0x-prefixed hex.',
     ]))
   })

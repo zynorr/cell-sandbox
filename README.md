@@ -1,8 +1,8 @@
 # Cell Sandbox
 
-Cell Sandbox is a visual learning and prototyping workspace for the Nervos CKB Cell model. Design Cells field by field, inspect committed transactions, understand capacity and scripts, export CCC-compatible TypeScript, and build supported testnet transactions without starting from raw structures.
+Cell Sandbox is a visual learning and prototyping workspace for the Nervos CKB Cell model. Design Cells field by field, inspect committed transactions, understand capacity and scripts, export CCC-compatible TypeScript, and build supported transactions without starting from raw structures.
 
-[Open the live demo](https://cell-sandbox-m.vercel.app/) | [Read the CKB docs](https://docs.nervos.org/) | [Architecture](docs/ARCHITECTURE.md) | [Development guide](docs/DEVELOPMENT.md)
+[Open the live demo](https://cell-sandbox-m.vercel.app/) | [Read the CKB docs](https://docs.nervos.org/) | [Architecture](docs/ARCHITECTURE.md) | [Development guide](docs/DEVELOPMENT.md) | [Usability protocol](docs/USABILITY_TESTING.md)
 
 ![Cell Sandbox Learn workspace](docs/screenshots/learn-overview.png)
 
@@ -12,10 +12,10 @@ CKB stores state in Cells rather than account records. That model is powerful, b
 
 Cell Sandbox makes those relationships visible:
 
-- **Learn before editing.** Start with the role of each Cell field and the live-to-dead Cell lifecycle.
+- **Learn before editing.** Learn is read-only and introduces one concept at a time before raw fields appear in Design Cells.
 - **Design with immediate feedback.** See exact capacity, occupied bytes, free capacity, script roles, and decoded data.
 - **Inspect real state transitions.** Resolve the previous Cells referenced by transaction inputs and compare them with newly created output Cells.
-- **Build with explicit boundaries.** Choose outputs locally while the connected wallet supplies funding inputs, calculates fees, and returns change.
+- **Build with explicit boundaries.** Build hides raw fields, shows the CCC completion path, and leaves editing in Design Cells.
 - **Move back to code.** Export the visual configuration as CCC-compatible TypeScript or share it by URL.
 
 ## Guided Workflow
@@ -29,7 +29,7 @@ Cell Sandbox makes those relationships visible:
 
 ### Design Cells
 
-The designer keeps protocol details next to the field they affect. Known lock and type scripts are separated, capacities remain exact `BigInt` values, and common data formats receive structured previews.
+The designer keeps protocol details next to the field they affect. Known lock and type scripts are separated, capacities remain exact `BigInt` values, and common data formats receive structured previews. Deployment values come from CCC `KnownScript`; occupied size and free capacity come from CCC `CellAny`.
 
 ![xUDT Cell in the visual designer](docs/screenshots/design-xudt.png)
 
@@ -61,7 +61,6 @@ Cell Sandbox intentionally distinguishes sendable templates from design-only exa
 | CKB Transfer | Build and send | Create a standard output with a wallet or recipient lock. |
 | DAO Deposit | Build and send | Create a fresh deposit with exactly 8 zero data bytes and the required DAO cell dep. |
 | xUDT Token | Design only | Inspect the raw `uint128` little-endian amount and owner lock hash. |
-| Spore v2 Cell | Design only | Decode Molecule-encoded content, content type, and cluster ID. |
 | Omnilock Cell | Design only | Explore an Ethereum-auth Omnilock configuration. |
 | Always Success | Design only | Study an anyone-can-spend testing lock without funding it. |
 
@@ -97,8 +96,8 @@ pnpm install
 
 ## Five-Minute Review
 
-1. Start on **Learn** and open **How to Use**.
-2. Open **Design Cells**, choose **Templates**, and inspect the xUDT or Spore example.
+1. Start on **Learn** and follow the Cell to transaction state transition.
+2. Open **Design Cells**, choose **Templates**, and inspect the xUDT example.
 3. Open **Inspect Tx** and load the built-in multi-input sample.
 4. Open **Build Tx**, choose the **CKB Transfer** or **DAO Deposit** template, and confirm it becomes an output.
 5. Connect a testnet wallet to see its lock fill the template and the transaction advance to review.
@@ -122,7 +121,6 @@ Protocol references:
 - [Transaction RFC 0022](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/0022-transaction-structure.md)
 - [Nervos DAO RFC 0023](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0023-dao-deposit-withdraw/0023-dao-deposit-withdraw.md)
 - [xUDT RFC 0052](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0052-extensible-udt/0052-extensible-udt.md)
-- [Spore data format](https://docs.spore.pro/recipes/Data/handle-spore-data)
 
 ## Tech Stack
 
@@ -131,7 +129,7 @@ Protocol references:
 | Application | Next.js 16, React 19, TypeScript |
 | Styling | Tailwind CSS 4 |
 | State | Zustand |
-| Transaction canvas | React Flow / `@xyflow/react` |
+| Transaction flow | Responsive React components |
 | CKB SDK and wallets | CCC / `@ckb-ccc` |
 | Validation | Zod |
 | Tests | Vitest and Testing Library |
@@ -170,6 +168,8 @@ pnpm lint
 pnpm test
 pnpm build
 ```
+
+These checks verify implementation behavior. Newcomer comprehension is evaluated separately with the [usability protocol](docs/USABILITY_TESTING.md); no participant results are claimed until sessions are recorded.
 
 ## License
 

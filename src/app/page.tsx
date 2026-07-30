@@ -8,10 +8,9 @@ import { TransactionFlow } from '@/components/TransactionFlow'
 import { WalletConnect } from '@/components/WalletConnect'
 import { CellTemplates } from '@/components/CellTemplates'
 import { GuidePanel } from '@/components/GuidePanel'
-import { StartHerePanel } from '@/components/StartHerePanel'
-import { CellConceptPanel } from '@/components/CellConceptPanel'
 import { TransactionInspector } from '@/components/TransactionInspector'
 import { WorkspaceStatus } from '@/components/WorkspaceStatus'
+import { LearnWorkspace } from '@/components/LearnWorkspace'
 import { useSandbox } from '@/store/sandbox'
 import type { NetworkMode, ViewMode } from '@/types'
 import { deserializeCells } from '@/lib/share'
@@ -90,15 +89,18 @@ function CellCanvas({ showOutputControls }: { showOutputControls: boolean }) {
   )
 }
 
-function EditorAside() {
+function DesignEditorAside() {
   return (
     <aside className="flex w-full flex-col border-t border-stone-800/80 bg-stone-950/20 lg:w-80 lg:border-l lg:border-t-0 xl:w-96">
-      <div className="flex-1">
-        <CellEditor />
-      </div>
-      <div className="px-4 pb-4">
-        <WalletConnect />
-      </div>
+      <CellEditor />
+    </aside>
+  )
+}
+
+function WalletAside() {
+  return (
+    <aside className="w-full border-t border-stone-800/80 bg-stone-950/20 p-4 lg:w-80 lg:border-l lg:border-t-0 xl:w-96">
+      <WalletConnect />
     </aside>
   )
 }
@@ -111,6 +113,31 @@ function ToolbarBand() {
           <Toolbar />
         </div>
         <div className="flex shrink-0 items-start gap-1.5 sm:pt-0">
+          <CellTemplates />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BuildToolbarBand() {
+  const setViewMode = useSandbox((state) => state.setViewMode)
+
+  return (
+    <div className="border-b border-stone-800/80 bg-stone-950/20 px-4 py-3 sm:px-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-medium text-stone-300">Choose transaction outputs</p>
+          <p className="mt-1 text-[11px] text-stone-500">Build uses designed Cells without exposing their raw fields.</p>
+        </div>
+        <div className="flex flex-wrap items-start gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode('design')}
+            className="rounded-md border border-stone-700 bg-stone-900 px-3 py-1.5 text-xs font-medium text-stone-200 transition-colors hover:border-stone-600"
+          >
+            Edit in Design
+          </button>
           <CellTemplates />
         </div>
       </div>
@@ -157,7 +184,7 @@ export default function Home() {
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-stone-800/80 bg-stone-950/60 px-4 py-2.5 backdrop-blur-sm sm:px-6">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:flex lg:flex-row lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <span className="shrink-0 whitespace-nowrap text-base font-bold tracking-tight text-stone-100">Cell Sandbox</span>
             <div className="relative" ref={networkRef}>
@@ -198,12 +225,12 @@ export default function Home() {
             </div>
           </div>
 
-          <nav className="flex min-w-0 flex-wrap gap-1 rounded-lg border border-stone-800 bg-stone-900/60 p-1">
+          <nav className="col-span-2 row-start-2 grid w-full min-w-0 grid-cols-2 gap-1 rounded-lg border border-stone-800 bg-stone-900/60 p-1 sm:flex sm:w-auto sm:flex-wrap lg:col-auto lg:row-auto">
             {NAV_ITEMS.map((item) => (
               <button
                 key={item.mode}
                 onClick={() => setViewMode(item.mode)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`w-full rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:w-auto ${
                   viewMode === item.mode
                     ? 'bg-stone-700 text-stone-100 shadow-sm'
                     : 'text-stone-500 hover:bg-stone-800 hover:text-stone-300'
@@ -214,17 +241,20 @@ export default function Home() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="col-start-2 row-start-1 flex items-center gap-2 lg:col-auto lg:row-auto">
             <button
               onClick={() => setShowGuide(true)}
               className="rounded-lg border border-emerald-800/50 bg-emerald-950/20 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition-colors hover:border-emerald-700 hover:bg-emerald-950/40"
             >
-              How to Use
+              <span className="sm:hidden">Guide</span>
+              <span className="hidden sm:inline">How to Use</span>
             </button>
-            <span className="shrink-0 font-mono text-xs text-stone-500">
-              {cells.length} cell{cells.length !== 1 && 's'}
-              {selectedIndex !== null ? ` - #${selectedIndex}` : ''}
-            </span>
+            {(viewMode === 'design' || viewMode === 'build') && (
+              <span className="hidden shrink-0 font-mono text-xs text-stone-500 sm:inline">
+                {cells.length} cell{cells.length !== 1 && 's'}
+                {selectedIndex !== null ? ` - #${selectedIndex}` : ''}
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -233,39 +263,7 @@ export default function Home() {
 
       <div ref={workspaceRef} className="min-h-0 flex-1 overflow-y-auto">
         {viewMode === 'learn' && (
-          <div className="grid gap-4 p-4 lg:grid-cols-[16rem_1fr] xl:grid-cols-[16rem_1fr_22rem]">
-            <StartHerePanel />
-            <main className="min-w-0 space-y-4">
-              <section className="rounded-lg border border-stone-800 bg-stone-950/40 p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Learning Flow</p>
-                <h1 className="mt-1 text-lg font-semibold text-stone-100">See the Cell model before writing code</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-400">
-                  Start with the Cell fields, design or load a Cell, inspect real transactions, then build a transaction flow once the state transition makes sense.
-                </p>
-                <div className="mt-4 grid gap-2 md:grid-cols-3">
-                  <div className="rounded-lg border border-stone-800 bg-stone-950/60 p-3">
-                    <p className="text-xs font-semibold text-stone-200">CCC Playground</p>
-                    <p className="mt-1 text-xs leading-5 text-stone-500">Code-first: write TypeScript, then see the transaction.</p>
-                  </div>
-                  <div className="rounded-lg border border-stone-800 bg-stone-950/60 p-3">
-                    <p className="text-xs font-semibold text-stone-200">CCC App</p>
-                    <p className="mt-1 text-xs leading-5 text-stone-500">Task-first: choose a known operation and fill its parameters.</p>
-                  </div>
-                  <div className="rounded-lg border border-emerald-800/40 bg-emerald-950/20 p-3">
-                    <p className="text-xs font-semibold text-emerald-200">Cell Sandbox</p>
-                    <p className="mt-1 text-xs leading-5 text-stone-400">Design-first: shape Cells visually, inspect inputs and outputs, then export or send.</p>
-                  </div>
-                </div>
-              </section>
-              <CellConceptPanel />
-            </main>
-            <div className="space-y-4 lg:col-span-2 xl:col-span-1">
-              <CellEditor />
-              <div className="px-0">
-                <WalletConnect />
-              </div>
-            </div>
-          </div>
+          <LearnWorkspace />
         )}
 
         {viewMode === 'design' && (
@@ -275,14 +273,13 @@ export default function Home() {
               <main className="flex-1 p-4 sm:p-6">
                 <CellCanvas showOutputControls={false} />
               </main>
-              <EditorAside />
+              <DesignEditorAside />
             </div>
           </>
         )}
 
         {viewMode === 'inspect' && (
-          <div className="grid gap-4 p-4 lg:grid-cols-[16rem_1fr]">
-            <StartHerePanel />
+          <div className="mx-auto max-w-6xl p-4 sm:p-6">
             <main className="min-w-0">
               <TransactionInspector />
             </main>
@@ -291,13 +288,17 @@ export default function Home() {
 
         {viewMode === 'build' && (
           <>
-            <ToolbarBand />
+            <BuildToolbarBand />
             <TransactionFlow />
             <div className="flex flex-col lg:flex-row">
-              <main className="flex-1 p-4 sm:p-6">
+              <main className="min-w-0 flex-1 p-4 sm:p-6">
+                <div className="mb-4">
+                  <h2 className="text-sm font-semibold text-stone-200">Designed Cells</h2>
+                  <p className="mt-1 text-xs text-stone-500">Add only the Cells this transaction should create.</p>
+                </div>
                 <CellCanvas showOutputControls />
               </main>
-              <EditorAside />
+              <WalletAside />
             </div>
           </>
         )}

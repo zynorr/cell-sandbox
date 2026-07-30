@@ -2,7 +2,8 @@
 
 import type { ScriptState } from '@/types'
 import { formatCapacityExact } from '@/lib/ccc'
-import { KNOWN_SCRIPTS } from '@/lib/script'
+import { findKnownScript } from '@/lib/script'
+import { useSandbox } from '@/store/sandbox'
 
 function hexToBytes(hex: string): Uint8Array {
   const raw = hex.startsWith('0x') ? hex.slice(2) : hex
@@ -30,15 +31,6 @@ function readLeUint64(bytes: Uint8Array, offset = 0): bigint {
     value = (value << BigInt(8)) | BigInt(bytes[index] ?? 0)
   }
   return value
-}
-
-function readLeUint32(bytes: Uint8Array, offset = 0): number {
-  return (
-    (bytes[offset] ?? 0) |
-    ((bytes[offset + 1] ?? 0) << 8) |
-    ((bytes[offset + 2] ?? 0) << 16) |
-    ((bytes[offset + 3] ?? 0) << 24)
-  ) >>> 0
 }
 
 interface PreviewEntry {
@@ -80,55 +72,6 @@ function parseDao(data: Uint8Array): PreviewEntry[] {
   ]
 }
 
-function readMoleculeBytes(segment: Uint8Array): Uint8Array | null {
-  if (segment.length < 4) return null
-  const length = readLeUint32(segment)
-  if (length !== segment.length - 4) return null
-  return segment.slice(4)
-}
-
-function parseSpore(data: Uint8Array): PreviewEntry[] {
-  if (data.length < 16) return [{ label: 'Invalid SporeData', value: `${data.length} bytes` }]
-
-  const totalSize = readLeUint32(data)
-  const firstOffset = readLeUint32(data, 4)
-  if (totalSize !== data.length || firstOffset !== 16) {
-    return [{ label: 'Invalid SporeData', value: 'Expected a 3-field Molecule table' }]
-  }
-
-  const offsets = [firstOffset, readLeUint32(data, 8), readLeUint32(data, 12), totalSize]
-  if (offsets.some((offset, index) => offset > totalSize || (index > 0 && offset < offsets[index - 1]))) {
-    return [{ label: 'Invalid SporeData', value: 'Molecule offsets are out of range' }]
-  }
-
-  const contentTypeBytes = readMoleculeBytes(data.slice(offsets[0], offsets[1]))
-  const contentBytes = readMoleculeBytes(data.slice(offsets[1], offsets[2]))
-  const clusterSegment = data.slice(offsets[2], offsets[3])
-  const clusterIdBytes = clusterSegment.length === 0 ? new Uint8Array(0) : readMoleculeBytes(clusterSegment)
-  if (!contentTypeBytes || !contentBytes || clusterIdBytes === null || (clusterIdBytes.length !== 0 && clusterIdBytes.length !== 32)) {
-    return [{ label: 'Invalid SporeData', value: 'Malformed Molecule field' }]
-  }
-
-  const contentType = new TextDecoder('utf-8', { fatal: false }).decode(contentTypeBytes)
-  const textContent = new TextDecoder('utf-8', { fatal: false }).decode(contentBytes)
-  const showText = /^(text\/|application\/(json|xml))/.test(contentType) && /^[\x09\x0A\x0D\x20-\x7E]*$/.test(textContent)
-
-  return [
-    { label: 'Content type', value: contentType || 'Empty', highlight: true },
-    { label: 'Content', value: showText ? textContent || 'Empty' : `${contentBytes.length} bytes` },
-    { label: 'Cluster ID', value: clusterIdBytes.length === 32 ? bytesToHex(clusterIdBytes) : 'None' },
-    { label: 'Molecule size', value: `${totalSize} bytes` },
-  ]
-}
-
-function identifyScript(codeHash: string, hashType: string): string | null {
-  const normalizedCodeHash = codeHash.toLowerCase()
-  const known = KNOWN_SCRIPTS.find(
-    (script) => script.codeHash.toLowerCase() === normalizedCodeHash && script.hashType === hashType
-  )
-  return known?.name ?? null
-}
-
 function displayCapacity(capacity: string): string {
   try {
     return formatCapacityExact(capacity)
@@ -144,6 +87,7 @@ interface DataPreviewProps {
 }
 
 export function DataPreview({ type, data, capacity }: DataPreviewProps) {
+  const network = useSandbox((state) => state.network)
   const bytes = hexToBytes(data)
 
   if (!type || !type.codeHash) {
@@ -157,7 +101,7 @@ export function DataPreview({ type, data, capacity }: DataPreviewProps) {
     )
   }
 
-  const scriptName = identifyScript(type.codeHash, type.hashType)
+  const scriptName = findKnownScript(type, network)?.name ?? null
   let entries: PreviewEntry[]
 
   if (scriptName === 'xUDT') {
@@ -177,13 +121,6 @@ export function DataPreview({ type, data, capacity }: DataPreviewProps) {
     })
   } else if (scriptName === 'Nervos DAO') {
     entries = parseDao(bytes)
-  } else if (scriptName === 'Spore v2') {
-    entries = parseSpore(bytes)
-    const sporeId = hexToBytes(type.args)
-    entries.unshift({
-      label: 'Spore ID',
-      value: sporeId.length === 32 ? bytesToHex(sporeId) : 'Missing; requires 32 bytes',
-    })
   } else if (scriptName === 'Type ID') {
     entries = [
       { label: 'Type identity', value: type.args || 'Missing args', highlight: true },

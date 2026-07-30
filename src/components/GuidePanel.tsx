@@ -25,7 +25,7 @@ const GUIDE_STEPS: Array<{
   },
   {
     title: 'Build a transaction flow',
-    body: 'Mark draft Cells as outputs to create, then let the wallet supply funding inputs when sending on testnet.',
+    body: 'Mark draft Cells as outputs to create, then let the wallet supply funding inputs when signing.',
     mode: 'build',
   },
 ]

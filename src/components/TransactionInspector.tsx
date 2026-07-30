@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { useSandbox } from '@/store/sandbox'
 import { formatCapacity, formatCapacityExact } from '@/lib/ccc'
 import { txHashSchema } from '@/lib/schemas'
-import { KNOWN_SCRIPTS } from '@/lib/script'
+import { findKnownScript } from '@/lib/script'
 import { loadTransactionFromChain, type InspectedCell, type InspectedTransaction } from '@/lib/transaction'
 import { PUDGE_TRANSACTION_EXAMPLES, type PudgeTransactionExample } from '@/lib/examples'
-import type { ScriptState } from '@/types'
+import type { NetworkMode, ScriptState } from '@/types'
 
 function shortHash(value: string): string {
   if (!value) return 'None'
@@ -15,13 +15,9 @@ function shortHash(value: string): string {
   return `${value.slice(0, 10)}...${value.slice(-6)}`
 }
 
-function scriptLabel(script: ScriptState | null): string {
+function scriptLabel(script: ScriptState | null, network: NetworkMode): string {
   if (!script) return 'None'
-  const known = KNOWN_SCRIPTS.find(
-    (item) =>
-      item.codeHash.toLowerCase() === script.codeHash.toLowerCase() &&
-      item.hashType === script.hashType
-  )
+  const known = findKnownScript(script, network)
   return known ? known.name : `${shortHash(script.codeHash)} (${script.hashType})`
 }
 
@@ -44,7 +40,7 @@ function SummaryCard({ label, value, tone }: { label: string; value: string; ton
   )
 }
 
-function CellSummary({ item, role }: { item: InspectedCell; role: 'input' | 'output' }) {
+function CellSummary({ item, role, network }: { item: InspectedCell; role: 'input' | 'output'; network: NetworkMode }) {
   const tone = role === 'input'
     ? 'border-blue-800/50 bg-blue-950/10'
     : 'border-emerald-800/50 bg-emerald-950/10'
@@ -99,9 +95,9 @@ function CellSummary({ item, role }: { item: InspectedCell; role: 'input' | 'out
         <dt className="text-stone-500">Capacity</dt>
         <dd className="font-mono text-stone-200">{formatCapacity(item.cell.capacity)}</dd>
         <dt className="text-stone-500">Lock</dt>
-        <dd className="truncate text-stone-300" title={item.cell.lock.codeHash}>{scriptLabel(item.cell.lock)}</dd>
+        <dd className="truncate text-stone-300" title={item.cell.lock.codeHash}>{scriptLabel(item.cell.lock, network)}</dd>
         <dt className="text-stone-500">Type</dt>
-        <dd className="truncate text-stone-300" title={item.cell.type?.codeHash}>{scriptLabel(item.cell.type)}</dd>
+        <dd className="truncate text-stone-300" title={item.cell.type?.codeHash}>{scriptLabel(item.cell.type, network)}</dd>
         <dt className="text-stone-500">Data</dt>
         <dd className="font-mono text-stone-300">{dataLabel(item.cell.data)}</dd>
       </dl>
@@ -182,7 +178,7 @@ export function TransactionInspector() {
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <span className="mr-1 text-stone-500">Pudge testnet examples</span>
+          <span className="mr-1 text-stone-500">Try a testnet example</span>
           {PUDGE_TRANSACTION_EXAMPLES.map((sample) => (
             <button
               key={sample.id}
@@ -206,7 +202,7 @@ export function TransactionInspector() {
 
       {!visibleResult && !isLoading && !error && (
         <div className="grid gap-3 md:grid-cols-4">
-          <SummaryCard label="No transaction loaded" value="Paste or sample" tone="text-stone-300" />
+          <SummaryCard label="No transaction loaded" value="Paste or choose example" tone="text-stone-300" />
           <SummaryCard label="Inputs" value="Waiting" tone="text-blue-300" />
           <SummaryCard label="Outputs" value="Waiting" tone="text-emerald-300" />
           <SummaryCard label="Fee" value="Waiting" tone="text-amber-300" />
@@ -279,7 +275,7 @@ export function TransactionInspector() {
               </div>
               <div className="mt-3 space-y-2">
                 {visibleResult.inputCells.map((item) => (
-                  <CellSummary key={`${item.outPoint?.txHash}-${item.outPoint?.index}-${item.index}`} item={item} role="input" />
+                  <CellSummary key={`${item.outPoint?.txHash}-${item.outPoint?.index}-${item.index}`} item={item} role="input" network={network} />
                 ))}
               </div>
             </section>
@@ -291,7 +287,7 @@ export function TransactionInspector() {
               </div>
               <div className="mt-3 space-y-2">
                 {visibleResult.outputCells.map((item) => (
-                  <CellSummary key={`${item.outPoint?.txHash}-${item.outPoint?.index}-${item.index}`} item={item} role="output" />
+                  <CellSummary key={`${item.outPoint?.txHash}-${item.outPoint?.index}-${item.index}`} item={item} role="output" network={network} />
                 ))}
               </div>
             </section>

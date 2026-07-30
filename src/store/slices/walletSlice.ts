@@ -2,10 +2,9 @@ import type { StateCreator } from 'zustand'
 import type { CellState, WalletState, ScriptState } from '@/types'
 import type { StoreState } from '../sandbox'
 import { getClient } from '@/lib/ccc'
-import { getScriptCellDep } from '@/lib/script'
+import { isKnownScript } from '@/lib/script'
 import {
-  NERVOS_DAO_CODE_HASH,
-  SECP256K1_BLAKE160_CODE_HASH,
+  isWalletFillableLock,
   validateOutputCells,
 } from '@/lib/cellValidation'
 import { ccc } from '@ckb-ccc/ccc'
@@ -96,8 +95,7 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
 
       set((current) => ({
         cells: current.cells.map((cell) =>
-          cell.lock.codeHash.toLowerCase() === SECP256K1_BLAKE160_CODE_HASH &&
-          (!cell.lock.args || cell.lock.args === '0x')
+          isWalletFillableLock(cell.lock, state.network)
             ? { ...cell, lock: { ...walletLockScript } }
             : cell
         ),
@@ -180,6 +178,10 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
 
   sendTransaction: async () => {
     const state = get()
+    const hasDaoOutput = state.txOutputs.some((index) => {
+      const type = state.cells[index]?.type
+      return Boolean(type && isKnownScript(type, ccc.KnownScript.NervosDao, state.network))
+    })
     if (state.wallet.isSending || !state.wallet.connected) return
     set({ wallet: { ...state.wallet, isSending: true, sendError: null, lastTxHash: null, explorerUrl: null } })
 
@@ -189,19 +191,15 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
       if (!(await ckbSigner.isConnected())) await ckbSigner.connect()
       const client = getClient(state.network)
 
-      const codeHashes = new Set<string>()
       const outputs: ccc.CellOutput[] = []
       const outputsData: string[] = []
       const outputSelections = state.txOutputs
         .map((index) => ({ index, cell: state.cells[index] }))
         .filter((selection): selection is { index: number; cell: CellState } => selection.cell !== undefined)
-      const outputIssues = validateOutputCells(outputSelections)
+      const outputIssues = validateOutputCells(outputSelections, state.network)
       if (outputIssues.length > 0) throw new Error(outputIssues[0])
 
       for (const { cell } of outputSelections) {
-
-        if (cell.lock.codeHash) codeHashes.add(cell.lock.codeHash.toLowerCase())
-        if (cell.type?.codeHash) codeHashes.add(cell.type.codeHash.toLowerCase())
 
         const lock = ccc.Script.from({
           codeHash: ccc.hexFrom(cell.lock.codeHash || '0x0000000000000000000000000000000000000000000000000000000000000000'),
@@ -226,26 +224,9 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
         outputsData.push(ccc.hexFrom(cell.data || '0x'))
       }
 
-      const cellDeps: ccc.CellDep[] = []
-      for (const ch of codeHashes) {
-        if (ch === NERVOS_DAO_CODE_HASH) continue
-        const dep = getScriptCellDep(ch)
-        if (dep) {
-          cellDeps.push(
-            ccc.CellDep.from({
-              outPoint: ccc.OutPoint.from({
-                txHash: ccc.hexFrom(dep.txHash),
-                index: ccc.numFrom(dep.index),
-              }),
-              depType: dep.depType as ccc.DepType,
-            })
-          )
-        }
-      }
+      const tx = ccc.Transaction.from({ outputs, outputsData })
 
-      const tx = ccc.Transaction.from({ outputs, outputsData, cellDeps })
-
-      if (codeHashes.has(NERVOS_DAO_CODE_HASH)) {
+      if (hasDaoOutput) {
         await tx.addCellDepsOfKnownScripts(client, ccc.KnownScript.NervosDao)
       }
 
@@ -278,7 +259,7 @@ export const createWalletSlice: StateCreator<StoreState, [], [], WalletSlice> = 
         friendly = 'Invalid script args - the script expected a different arg length (for example, xUDT starts with a 32-byte owner lock hash).'
       } else if (raw.includes('error code -52') || raw.includes('ERROR_AMOUNT')) {
         friendly = 'Token amount mismatch - you need input Cells with the same token type to create xUDT outputs.'
-      } else if (raw.includes(NERVOS_DAO_CODE_HASH) && raw.includes('error code -4')) {
+      } else if (hasDaoOutput && raw.includes('error code -4')) {
         friendly = 'Invalid Nervos DAO output data. A new DAO deposit must contain exactly 8 zero bytes (0x0000000000000000).'
       }
 
