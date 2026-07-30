@@ -1,6 +1,6 @@
 # Cell Sandbox
 
-Cell Sandbox is a visual learning and prototyping workspace for the Nervos CKB Cell model. Design Cells field by field, inspect committed transactions, understand capacity and scripts, export CCC-compatible TypeScript, and build supported transactions without starting from raw structures.
+Cell Sandbox is a visual learning and prototyping workspace for the Nervos CKB Cell model. Its four focused workspaces move from a read-only explanation of Cells to field-level design, inspection of committed transactions, and wallet-funded transaction construction with CCC.
 
 [Open the live demo](https://cell-sandbox-m.vercel.app/) | [Read the CKB docs](https://docs.nervos.org/) | [Architecture](docs/ARCHITECTURE.md) | [Development guide](docs/DEVELOPMENT.md) | [Usability protocol](docs/USABILITY_TESTING.md)
 
@@ -13,9 +13,10 @@ CKB stores state in Cells rather than account records. That model is powerful, b
 Cell Sandbox makes those relationships visible:
 
 - **Learn before editing.** Learn is read-only and introduces one concept at a time before raw fields appear in Design Cells.
-- **Design with immediate feedback.** See exact capacity, occupied bytes, free capacity, script roles, and decoded data.
+- **Design with immediate feedback.** See exact capacity, occupied bytes, free capacity, script roles, and decoded data. Chain loading, sharing, and code export stay under **More tools** until needed.
 - **Inspect real state transitions.** Resolve the previous Cells referenced by transaction inputs and compare them with newly created output Cells.
-- **Build with explicit boundaries.** Build hides raw fields, shows the CCC completion path, and leaves editing in Design Cells.
+- **Build with explicit boundaries.** Build hides raw fields, separates outputs from wallet-selected inputs, and shows the exact CCC completion path.
+- **Reuse CCC behavior.** Known script deployments and Cell occupancy calculations come from CCC rather than a parallel local registry or estimator.
 - **Move back to code.** Export the visual configuration as CCC-compatible TypeScript or share it by URL.
 
 ## Guided Workflow
@@ -23,13 +24,15 @@ Cell Sandbox makes those relationships visible:
 | Step | Workspace | What happens |
 | --- | --- | --- |
 | 1 | **Learn** | Understand capacity, the required lock script, the optional type script, and output data. |
-| 2 | **Design Cells** | Create a draft, apply a template, edit fields, or load an on-chain Cell by outpoint. |
+| 2 | **Design Cells** | Create a local draft, apply a template, edit fields, or open **More tools** to load an on-chain Cell by outpoint. |
 | 3 | **Inspect Tx** | Paste a full transaction hash and compare referenced previous Cells with new output Cells. |
 | 4 | **Build Tx** | Mark drafts as outputs, connect a wallet, review validation, then sign and broadcast. |
 
 ### Design Cells
 
 The designer keeps protocol details next to the field they affect. Known lock and type scripts are separated, capacities remain exact `BigInt` values, and common data formats receive structured previews. Deployment values come from CCC `KnownScript`; occupied size and free capacity come from CCC `CellAny`.
+
+An empty standard Secp256k1 lock is a deliberate wallet-ready state, not a broken template. Build Tx fills it from the connected wallet. To create an output for someone else, enter that recipient's 20-byte lock args in Design Cells.
 
 ![xUDT Cell in the visual designer](docs/screenshots/design-xudt.png)
 
@@ -50,6 +53,16 @@ Built-in Pudge samples make the view reproducible:
 
 Draft Cells do not become transaction inputs. In Build Tx you explicitly select the Cells to create as outputs. The wallet then selects spendable funding Cells, calculates the fee at signing time, and sends change back to the wallet.
 
+The construction path shown in the interface matches the implementation:
+
+```ts
+const tx = ccc.Transaction.from({ outputs, outputsData })
+await tx.completeInputsByCapacity(signer)
+await tx.completeFeeBy(signer, 1000)
+```
+
+For a fresh Nervos DAO deposit, Cell Sandbox also asks CCC to add the known DAO cell dep before completion.
+
 ![DAO output with automatic wallet funding](docs/screenshots/build-dao.png)
 
 ## Current Build Scope
@@ -65,6 +78,14 @@ Cell Sandbox intentionally distinguishes sendable templates from design-only exa
 | Always Success | Design only | Study an anyone-can-spend testing lock without funding it. |
 
 Build validation blocks unsupported type scripts, malformed script arguments, insufficient capacity, and unsafe testing locks before wallet signing.
+
+### Product Boundaries
+
+- Designed Cells are local drafts until they are selected as transaction outputs.
+- Funding inputs, fee completion, and wallet change are supplied by CCC and the signer; Cell Sandbox is not a manual input selector.
+- Build Tx currently sends plain CKB outputs and fresh Nervos DAO deposits. xUDT, Omnilock, and Always Success remain design examples.
+- Inspect Tx reads committed transactions. It does not turn inspected Cells into editable or spendable wallet state.
+- Mainnet mode uses real CKB. Test templates and wallet flows on Pudge before using mainnet.
 
 ## Wallet and Network Support
 
@@ -100,7 +121,7 @@ pnpm install
 2. Open **Design Cells**, choose **Templates**, and inspect the xUDT example.
 3. Open **Inspect Tx** and load the built-in multi-input sample.
 4. Open **Build Tx**, choose the **CKB Transfer** or **DAO Deposit** template, and confirm it becomes an output.
-5. Connect a testnet wallet to see its lock fill the template and the transaction advance to review.
+5. Connect a testnet wallet to see the empty output lock fill automatically and the transaction advance to review.
 
 ## CKB Model Used in the UI
 
@@ -129,7 +150,7 @@ Protocol references:
 | Application | Next.js 16, React 19, TypeScript |
 | Styling | Tailwind CSS 4 |
 | State | Zustand |
-| Transaction flow | Responsive React components |
+| Transaction construction | CCC `Transaction.from`, `completeInputsByCapacity`, and `completeFeeBy` |
 | CKB SDK and wallets | CCC / `@ckb-ccc` |
 | Validation | Zod |
 | Tests | Vitest and Testing Library |
