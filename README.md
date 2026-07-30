@@ -2,9 +2,7 @@
 
 Cell Sandbox is a visual learning and prototyping workspace for the Nervos CKB Cell model. Its four focused workspaces move from a read-only explanation of Cells to field-level design, inspection of committed transactions, and wallet-funded transaction construction with CCC.
 
-[Open the live demo](https://cell-sandbox-m.vercel.app/) | [Read the CKB docs](https://docs.nervos.org/) | [Architecture](docs/ARCHITECTURE.md) | [Development guide](docs/DEVELOPMENT.md) | [Usability protocol](docs/USABILITY_TESTING.md)
-
-![Cell Sandbox Learn workspace](docs/screenshots/learn-overview.png)
+[Open the live demo](https://cell-sandbox-m.vercel.app/) | [Read the CKB docs](https://docs.nervos.org/) | [Architecture](docs/ARCHITECTURE.md) | [Development guide](docs/DEVELOPMENT.md) | [Screenshots](docs/screenshots) | [Usability protocol](docs/USABILITY_TESTING.md)
 
 ## Why Cell Sandbox
 
@@ -34,13 +32,9 @@ The designer keeps protocol details next to the field they affect. Known lock an
 
 An empty standard Secp256k1 lock is a deliberate wallet-ready state, not a broken template. Build Tx fills it from the connected wallet. To create an output for someone else, enter that recipient's 20-byte lock args in Design Cells.
 
-![xUDT Cell in the visual designer](docs/screenshots/design-xudt.png)
-
 ### Inspect Transactions
 
 The inspector resolves regular inputs to their previous Cells, identifies cellbase inputs, handles DAO capacity exceptions, and displays exact capacity flow for ordinary transactions.
-
-![Committed multi-input transaction inspection](docs/screenshots/inspect-transaction.png)
 
 Built-in Pudge samples make the view reproducible:
 
@@ -62,8 +56,6 @@ await tx.completeFeeBy(signer, 1000)
 ```
 
 For a fresh Nervos DAO deposit, Cell Sandbox also asks CCC to add the known DAO cell dep before completion.
-
-![DAO output with automatic wallet funding](docs/screenshots/build-dao.png)
 
 ## Current Build Scope
 
