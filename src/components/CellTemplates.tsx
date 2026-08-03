@@ -4,7 +4,7 @@ import { useSandbox } from '@/store/sandbox'
 import { getCellTemplates, type CellTemplate } from '@/lib/templates'
 import { formatCapacityExact } from '@/lib/ccc'
 
-export function CellTemplates() {
+export function CellTemplates({ trigger = true }: { trigger?: boolean }) {
   const showTemplates = useSandbox((s) => s.showTemplates)
   const setShowTemplates = useSandbox((s) => s.setShowTemplates)
   const applyTemplate = useSandbox((s) => s.applyTemplate)
@@ -39,10 +39,11 @@ export function CellTemplates() {
   }
 
   if (!showTemplates) {
+    if (!trigger) return null
     return (
       <button
         onClick={() => setShowTemplates(true)}
-        className="flex items-center gap-1.5 text-xs font-medium bg-stone-700 hover:bg-stone-600 text-stone-200 px-3 py-1.5 rounded-lg transition-all active:scale-95"
+        className="secondary-button"
       >
         <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M2 2h3v3H2zM7 2h3v3H7zM2 7h3v3H2zM7 7h3v3H7z" />
@@ -53,37 +54,37 @@ export function CellTemplates() {
   }
 
   return (
-    <div className="animate-fade-in space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-stone-400 uppercase tracking-wider">
-          Cell Templates
-        </span>
-        <button
-          onClick={() => setShowTemplates(false)}
-          className="text-xs text-stone-500 hover:text-stone-400 transition-colors"
-        >
-          Close
-        </button>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button aria-label="Close templates" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowTemplates(false)} />
+      <section className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-md border border-stone-700 bg-stone-900 shadow-2xl animate-fade-in">
+        <div className="flex items-start justify-between border-b border-stone-800 p-5">
+          <div>
+            <span className="text-xs font-semibold uppercase text-emerald-400">Start from an example</span>
+            <h2 className="mt-1 text-xl font-semibold text-stone-100">Choose a Cell to explore</h2>
+          </div>
+          <button onClick={() => setShowTemplates(false)} className="secondary-button">Close</button>
+        </div>
 
-      <p className="text-[10px] text-stone-500 leading-relaxed">
+        <div className="min-h-0 overflow-y-auto p-5">
+
+      <p className="text-sm text-stone-400 leading-6">
         {viewMode === 'build'
           ? 'Build templates replace the workspace and become outputs. Design examples open Design Cells. Existing Tx selections are cleared.'
           : 'Selecting a template replaces the current workspace. Build-ready templates can become outputs in Build Tx.'}
       </p>
 
-      <div className="space-y-2">
+      <div className="mt-5 space-y-5">
         {sections.map((section) => (
           <div key={section.label}>
-            <div className="text-[10px] text-stone-500 uppercase tracking-wider mb-1.5 font-medium">
+            <div className="mb-2 text-xs font-semibold uppercase text-stone-500">
               {section.label}
             </div>
-            <div className="grid grid-cols-1 gap-1.5">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {section.templates.map((tpl) => (
                 <button
                   key={tpl.id}
                   onClick={() => handleApply(tpl)}
-                  className={`text-left p-2.5 rounded-lg border transition-all hover:bg-stone-700/50 active:scale-[0.98] ${
+                  className={`min-h-36 text-left p-4 rounded-md border transition-colors hover:bg-stone-800 ${
                     cells.length === tpl.cells.length &&
                     cells.every((c, i) => c.capacity === tpl.cells[i]?.capacity)
                       ? 'border-blue-500/30 bg-stone-800'
@@ -91,7 +92,7 @@ export function CellTemplates() {
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <div className="text-xs font-medium text-stone-200">{tpl.name}</div>
+                    <div className="text-sm font-semibold text-stone-100">{tpl.name}</div>
                     <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider ${
                       tpl.sendable
                         ? tpl.requiresWalletLock && !wallet.lockScript
@@ -102,7 +103,7 @@ export function CellTemplates() {
                       {statusLabel(tpl)}
                     </span>
                   </div>
-                  <div className="text-[10px] text-stone-500 mt-0.5 leading-relaxed">
+                  <div className="mt-2 text-xs text-stone-400 leading-5">
                     {tpl.description}
                   </div>
                   <div className="flex gap-1 mt-1.5">
@@ -125,7 +126,9 @@ export function CellTemplates() {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+        </div>
+      </section>
     </div>
   )
 }

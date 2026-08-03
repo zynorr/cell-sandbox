@@ -9,302 +9,192 @@ import { WalletConnect } from '@/components/WalletConnect'
 import { CellTemplates } from '@/components/CellTemplates'
 import { GuidePanel } from '@/components/GuidePanel'
 import { TransactionInspector } from '@/components/TransactionInspector'
-import { WorkspaceStatus } from '@/components/WorkspaceStatus'
 import { LearnWorkspace } from '@/components/LearnWorkspace'
 import { useSandbox } from '@/store/sandbox'
 import type { NetworkMode, ViewMode } from '@/types'
 import { deserializeCells } from '@/lib/share'
 
-const NAV_ITEMS: Array<{ mode: ViewMode; label: string }> = [
-  { mode: 'learn', label: 'Learn' },
-  { mode: 'design', label: 'Design Cells' },
-  { mode: 'inspect', label: 'Inspect Tx' },
-  { mode: 'build', label: 'Build Tx' },
+const WORKSPACES: Array<{ mode: ViewMode; label: string; short: string }> = [
+  { mode: 'design', label: 'Cell Lab', short: 'Lab' },
+  { mode: 'inspect', label: 'Transaction Explorer', short: 'Explore' },
+  { mode: 'build', label: 'Build & Test', short: 'Build' },
 ]
 
-function EmptyCellsState() {
-  const addCell = useSandbox((s) => s.addCell)
-  const setShowTemplates = useSandbox((s) => s.setShowTemplates)
-
-  return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-stone-800 bg-stone-950/40 p-6 text-center">
-      <svg className="h-9 w-9 text-stone-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="10" />
-        <circle cx="12" cy="12" r="6" strokeDasharray="2 2" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-      <p className="mt-3 text-sm font-medium text-stone-300">No Cells yet</p>
-      <p className="mt-1 max-w-sm text-xs leading-5 text-stone-500">
-        Create a blank Cell or choose a template to start exploring capacity, scripts, and data.
-      </p>
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
-        <button
-          onClick={() => addCell()}
-          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-500"
-        >
-          New Cell
-        </button>
-        <button
-          onClick={() => setShowTemplates(true)}
-          className="rounded-lg border border-stone-700 bg-stone-900 px-3 py-2 text-xs font-semibold text-stone-200 transition-colors hover:border-stone-600"
-        >
-          Templates
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function CellCanvas({ showOutputControls }: { showOutputControls: boolean }) {
+function CellCanvas({ outputs = false }: { outputs?: boolean }) {
   const cells = useSandbox((s) => s.cells)
   const txOutputs = useSandbox((s) => s.txOutputs)
   const toggleTxOutput = useSandbox((s) => s.toggleTxOutput)
 
-  if (cells.length === 0) return <EmptyCellsState />
+  return (
+    <div className="cell-canvas">
+      <div className="cell-canvas-head">
+        <div>
+          <p className="workspace-kicker">{outputs ? 'Proposed outputs' : 'Visual structure'}</p>
+          <h2>{outputs ? 'Choose the Cells this transaction creates' : 'Select a Cell to open its layers'}</h2>
+        </div>
+        <div className="cell-legend" aria-label="Cell layer legend">
+          <span><i className="bg-blue-400" />Lock</span>
+          <span><i className="bg-amber-400" />Type</span>
+          <span><i className="bg-emerald-400" />Data</span>
+        </div>
+      </div>
+      <div className="flex min-h-64 flex-wrap content-start items-start gap-5 p-5 sm:p-8">
+        {cells.map((_, index) => {
+          const selected = txOutputs.includes(index)
+          return (
+            <div key={index} className={`cell-item ${selected ? 'is-output' : ''}`}>
+              <CellView index={index} />
+              <div className="flex items-center justify-between gap-3 border-t border-stone-800 px-3 py-2">
+                <span className="text-xs font-medium text-stone-400">Cell {String(index + 1).padStart(2, '0')}</span>
+                {outputs && (
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-stone-300">
+                    <input type="checkbox" checked={selected} onChange={() => toggleTxOutput(index)} />
+                    Create
+                  </label>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function LabEntry({ onBlank }: { onBlank: () => void }) {
+  const setShowTemplates = useSandbox((s) => s.setShowTemplates)
+  const setViewMode = useSandbox((s) => s.setViewMode)
 
   return (
-    <div className="flex flex-wrap items-start gap-4 sm:gap-5">
-      {cells.map((_, i) => (
-        <div key={i} className="flex flex-col items-center gap-2">
-          <CellView index={i} />
-          {showOutputControls && (
-            <div>
-              <button
-                onClick={() => toggleTxOutput(i)}
-                aria-label={`${txOutputs.includes(i) ? 'Remove' : 'Mark'} Cell #${i} ${txOutputs.includes(i) ? 'from' : 'as'} transaction output`}
-                title={`${txOutputs.includes(i) ? 'Remove' : 'Mark'} Cell #${i} ${txOutputs.includes(i) ? 'from' : 'as'} transaction output`}
-                className={`min-w-24 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all active:scale-95 ${
-                  txOutputs.includes(i)
-                    ? 'bg-emerald-600/90 text-white shadow-sm'
-                    : 'border border-stone-700/50 bg-stone-800/50 text-stone-500 hover:border-emerald-500/50 hover:text-stone-300'
-                }`}
-              >
-                {txOutputs.includes(i) ? 'Output added' : 'Add output'}
-              </button>
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+      <CellTemplates trigger={false} />
+      <div className="max-w-2xl">
+        <p className="workspace-kicker">Cell Lab</p>
+        <h1 className="mt-2 text-3xl font-semibold text-stone-100">What would you like to explore?</h1>
+        <p className="mt-3 text-sm leading-6 text-stone-400">Begin with a readable example or deliberately open the full Cell structure. Nothing here is live on-chain until you build and sign a transaction.</p>
+      </div>
+      <div className="mt-8 grid gap-px overflow-hidden rounded-md border border-stone-800 bg-stone-800 md:grid-cols-2">
+        <button onClick={() => setShowTemplates(true)} className="entry-choice">
+          <span className="entry-number">01</span><strong>Start from an example</strong><small>Explore a transfer, DAO deposit, xUDT or authentication Cell.</small><b>Choose example -&gt;</b>
+        </button>
+        <button onClick={onBlank} className="entry-choice">
+          <span className="entry-number">02</span><strong>Create a blank Cell</strong><small>Open the unrestricted canvas and define every layer yourself.</small><b>Open blank canvas -&gt;</b>
+        </button>
+        <button onClick={() => setViewMode('inspect')} className="entry-choice">
+          <span className="entry-number">03</span><strong>Inspect a real transaction</strong><small>Trace consumed input Cells and the new output Cells they create.</small><b>Open Explorer -&gt;</b>
+        </button>
+        <button onClick={() => setViewMode('learn')} className="entry-choice">
+          <span className="entry-number">04</span><strong>Continue the guided journey</strong><small>Learn the layers and state transition before editing raw fields.</small><b>Return to Journey -&gt;</b>
+        </button>
+      </div>
+    </main>
+  )
+}
+
+function CellLab() {
+  const cells = useSandbox((s) => s.cells)
+  const [blankOpened, setBlankOpened] = useState(false)
+  const configured = cells.some((cell) => Boolean(cell.lock.codeHash || cell.type || cell.data !== '0x' || cell.outPoint))
+
+  if (!configured && !blankOpened) return <LabEntry onBlank={() => setBlankOpened(true)} />
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <div className="workspace-toolbar">
+        <Toolbar />
+        <CellTemplates />
+      </div>
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <main className="min-w-0 p-4 sm:p-6"><CellCanvas /></main>
+        <aside className="min-h-[32rem] border-t border-stone-800 bg-stone-950/40 lg:border-l lg:border-t-0"><CellEditor /></aside>
+      </div>
+    </div>
+  )
+}
+
+function AppHeader() {
+  const network = useSandbox((s) => s.network)
+  const setNetwork = useSandbox((s) => s.setNetwork)
+  const viewMode = useSandbox((s) => s.viewMode)
+  const setViewMode = useSandbox((s) => s.setViewMode)
+  const setShowGuide = useSandbox((s) => s.setShowGuide)
+  const [showNetwork, setShowNetwork] = useState(false)
+  const networkRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function close(event: MouseEvent) {
+      if (networkRef.current && !networkRef.current.contains(event.target as Node)) setShowNetwork(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  return (
+    <header className="app-header">
+      <div className="flex min-w-0 items-center gap-3">
+        <button onClick={() => setViewMode('learn')} className="brand-mark" aria-label="Open guided journey"><i />Cell Sandbox</button>
+        <div className="relative" ref={networkRef}>
+          <button onClick={() => setShowNetwork(!showNetwork)} className={`network-switch ${network}`}><i />{network}</button>
+          {showNetwork && (
+            <div className="absolute left-0 top-full z-40 mt-2 w-36 overflow-hidden rounded-md border border-stone-700 bg-stone-900 shadow-xl">
+              {(['testnet', 'mainnet'] as NetworkMode[]).map((item) => <button key={item} onClick={() => { setNetwork(item); setShowNetwork(false) }} className="block w-full px-3 py-2 text-left text-xs capitalize text-stone-300 hover:bg-stone-800">{item}</button>)}
             </div>
           )}
         </div>
-      ))}
-    </div>
-  )
-}
-
-function DesignEditorAside() {
-  return (
-    <aside className="flex w-full flex-col border-t border-stone-800/80 bg-stone-950/20 lg:w-80 lg:border-l lg:border-t-0 xl:w-96">
-      <CellEditor />
-    </aside>
-  )
-}
-
-function WalletAside() {
-  return (
-    <aside className="w-full border-t border-stone-800/80 bg-stone-950/20 p-4 lg:w-80 lg:border-l lg:border-t-0 xl:w-96">
-      <WalletConnect />
-    </aside>
-  )
-}
-
-function ToolbarBand() {
-  return (
-    <div className="border-b border-stone-800/80 bg-stone-950/20 px-4 py-3 sm:px-6">
-      <div className="flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
-        <div className="min-w-0 flex-1">
-          <Toolbar />
-        </div>
-        <div className="flex shrink-0 items-start gap-1.5 sm:pt-0">
-          <CellTemplates />
-        </div>
       </div>
-    </div>
-  )
-}
 
-function BuildToolbarBand() {
-  const setViewMode = useSandbox((state) => state.setViewMode)
+      <nav className="app-nav" aria-label="Primary navigation">
+        <button onClick={() => setViewMode('learn')} className={viewMode === 'learn' ? 'is-active' : ''}>Journey</button>
+        <span className="nav-divider" />
+        {WORKSPACES.map((item) => <button key={item.mode} onClick={() => setViewMode(item.mode)} className={viewMode === item.mode ? 'is-active' : ''}><span className="hidden sm:inline">{item.label}</span><span className="sm:hidden">{item.short}</span></button>)}
+      </nav>
 
-  return (
-    <div className="border-b border-stone-800/80 bg-stone-950/20 px-4 py-3 sm:px-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-medium text-stone-300">Choose transaction outputs</p>
-          <p className="mt-1 text-[11px] text-stone-500">Build uses designed Cells without exposing their raw fields.</p>
-        </div>
-        <div className="flex flex-wrap items-start gap-2">
-          <button
-            type="button"
-            onClick={() => setViewMode('design')}
-            className="rounded-md border border-stone-700 bg-stone-900 px-3 py-1.5 text-xs font-medium text-stone-200 transition-colors hover:border-stone-600"
-          >
-            Edit in Design
-          </button>
-          <CellTemplates />
-        </div>
-      </div>
-    </div>
+      <div className="hidden justify-self-end sm:block"><button onClick={() => setShowGuide(true)} className="secondary-button">Guide</button></div>
+    </header>
   )
 }
 
 export default function Home() {
   const restoreCells = useSandbox((s) => s.restoreCells)
   const clearError = useSandbox((s) => s.clearError)
+  const viewMode = useSandbox((s) => s.viewMode)
+  const setViewMode = useSandbox((s) => s.setViewMode)
+  const workspaceRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     clearError()
     const cells = deserializeCells(window.location.search)
-    if (cells) restoreCells(cells)
-  }, [restoreCells, clearError])
-
-  const cells = useSandbox((s) => s.cells)
-  const selectedIndex = useSandbox((s) => s.selectedIndex)
-  const network = useSandbox((s) => s.network)
-  const setNetwork = useSandbox((s) => s.setNetwork)
-  const viewMode = useSandbox((s) => s.viewMode)
-  const setViewMode = useSandbox((s) => s.setViewMode)
-  const setShowGuide = useSandbox((s) => s.setShowGuide)
-
-  const [showNetworkMenu, setShowNetworkMenu] = useState(false)
-  const networkRef = useRef<HTMLDivElement>(null)
-  const workspaceRef = useRef<HTMLDivElement>(null)
+    if (cells) {
+      restoreCells(cells)
+      setViewMode('design')
+    }
+  }, [clearError, restoreCells, setViewMode])
 
   useEffect(() => {
     workspaceRef.current?.scrollTo({ top: 0, left: 0 })
   }, [viewMode])
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (networkRef.current && !networkRef.current.contains(e.target as Node)) {
-        setShowNetworkMenu(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-stone-800/80 bg-stone-950/60 px-4 py-2.5 backdrop-blur-sm sm:px-6">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:flex lg:flex-row lg:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="shrink-0 whitespace-nowrap text-base font-bold tracking-tight text-stone-100">Cell Sandbox</span>
-            <div className="relative" ref={networkRef}>
-              <button
-                onClick={() => setShowNetworkMenu(!showNetworkMenu)}
-                className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-all active:scale-95 ${
-                  network === 'testnet'
-                    ? 'border border-emerald-700/40 bg-emerald-900/40 text-emerald-400 hover:bg-emerald-800/40'
-                    : 'border border-amber-700/40 bg-amber-900/40 text-amber-400 hover:bg-amber-800/40'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <span className={`h-1.5 w-1.5 rounded-full ${network === 'testnet' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                  {network}
-                </span>
-              </button>
-              {showNetworkMenu && (
-                <div className="absolute left-0 top-full z-50 mt-1.5 min-w-[120px] overflow-hidden rounded-lg border border-stone-700 bg-stone-800 shadow-xl animate-fade-in">
-                  {(['testnet', 'mainnet'] as NetworkMode[]).map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => {
-                        setNetwork(n)
-                        setShowNetworkMenu(false)
-                      }}
-                      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors ${
-                        network === n
-                          ? 'bg-blue-900/30 text-blue-300'
-                          : 'text-stone-400 hover:bg-stone-700/50 hover:text-stone-200'
-                      }`}
-                    >
-                      <span className={`h-1.5 w-1.5 rounded-full ${n === 'testnet' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <nav className="col-span-2 row-start-2 grid w-full min-w-0 grid-cols-2 gap-1 rounded-lg border border-stone-800 bg-stone-900/60 p-1 sm:flex sm:w-auto sm:flex-wrap lg:col-auto lg:row-auto">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.mode}
-                onClick={() => setViewMode(item.mode)}
-                className={`w-full rounded-md px-3 py-1.5 text-xs font-medium transition-colors sm:w-auto ${
-                  viewMode === item.mode
-                    ? 'bg-stone-700 text-stone-100 shadow-sm'
-                    : 'text-stone-500 hover:bg-stone-800 hover:text-stone-300'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="col-start-2 row-start-1 flex items-center gap-2 lg:col-auto lg:row-auto">
-            <button
-              onClick={() => setShowGuide(true)}
-              className="rounded-lg border border-emerald-800/50 bg-emerald-950/20 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition-colors hover:border-emerald-700 hover:bg-emerald-950/40"
-            >
-              <span className="sm:hidden">Guide</span>
-              <span className="hidden sm:inline">How to Use</span>
-            </button>
-            {(viewMode === 'design' || viewMode === 'build') && (
-              <span className="hidden shrink-0 font-mono text-xs text-stone-500 sm:inline">
-                {cells.length} cell{cells.length !== 1 && 's'}
-                {selectedIndex !== null ? ` - #${selectedIndex}` : ''}
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
-
+    <div className="flex h-full min-h-0 flex-col bg-stone-950">
+      <AppHeader />
       <GuidePanel />
-
       <div ref={workspaceRef} className="min-h-0 flex-1 overflow-y-auto">
-        {viewMode === 'learn' && (
-          <LearnWorkspace />
-        )}
-
-        {viewMode === 'design' && (
-          <>
-            <ToolbarBand />
-            <div className="flex flex-col lg:flex-row">
-              <main className="flex-1 p-4 sm:p-6">
-                <CellCanvas showOutputControls={false} />
-              </main>
-              <DesignEditorAside />
-            </div>
-          </>
-        )}
-
+        {viewMode === 'learn' && <LearnWorkspace />}
+        {viewMode === 'design' && <CellLab />}
         {viewMode === 'inspect' && (
-          <div className="mx-auto max-w-6xl p-4 sm:p-6">
-            <main className="min-w-0">
-              <TransactionInspector />
-            </main>
-          </div>
+          <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <div className="mb-6 max-w-2xl"><p className="workspace-kicker">Transaction Explorer</p><h1 className="mt-2 text-2xl font-semibold text-stone-100">Trace a real state transition</h1><p className="mt-2 text-sm leading-6 text-stone-400">Compare the live Cells a transaction consumed with the entirely new Cells it created.</p></div>
+            <TransactionInspector />
+          </main>
         )}
-
         {viewMode === 'build' && (
-          <>
-            <BuildToolbarBand />
+          <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="workspace-kicker">Build & Test</p><h1 className="mt-2 text-2xl font-semibold text-stone-100">Turn designed Cells into outputs</h1><p className="mt-2 text-sm text-stone-400">You choose what to create. CCC and the wallet complete funding, fee, and change.</p></div><CellTemplates /></div>
             <TransactionFlow />
-            <div className="flex flex-col lg:flex-row">
-              <main className="min-w-0 flex-1 p-4 sm:p-6">
-                <div className="mb-4">
-                  <h2 className="text-sm font-semibold text-stone-200">Designed Cells</h2>
-                  <p className="mt-1 text-xs text-stone-500">Add only the Cells this transaction should create.</p>
-                </div>
-                <CellCanvas showOutputControls />
-              </main>
-              <WalletAside />
-            </div>
-          </>
+            <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]"><CellCanvas outputs /><aside className="rounded-md border border-stone-800 bg-stone-900/40 p-4"><WalletConnect /></aside></div>
+          </main>
         )}
       </div>
-
-      <WorkspaceStatus />
     </div>
   )
 }

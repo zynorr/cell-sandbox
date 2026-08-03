@@ -9,9 +9,10 @@ interface ScriptSelectorProps {
   script: ScriptState
   role: 'lock' | 'type'
   onChange: (script: ScriptState) => void
+  showRaw?: boolean
 }
 
-export function ScriptSelector({ script, role, onChange }: ScriptSelectorProps) {
+export function ScriptSelector({ script, role, onChange, showRaw = true }: ScriptSelectorProps) {
   const [showKnown, setShowKnown] = useState(false)
   const network = useSandbox((state) => state.network)
   const availableScripts = getKnownScripts(network).filter((known) => known.roles.includes(role))
@@ -29,17 +30,21 @@ export function ScriptSelector({ script, role, onChange }: ScriptSelectorProps) 
         >
           {selectedKnown ? selectedKnown.name : 'Select Script'}
         </button>
-        <input
-          type="text"
-          value={script.args}
-          onChange={(e) => onChange({ ...script, args: e.target.value })}
-          className="min-w-0 flex-1 bg-stone-800/50 border border-stone-700/50 rounded-lg px-2.5 py-1 text-xs font-mono text-stone-300 placeholder-stone-600 focus:outline-none focus:border-blue-500/50 focus:bg-stone-800 transition-colors"
-          placeholder="Args (hex)"
-        />
+        {showRaw && (
+          <input
+            aria-label={`${role} script arguments`}
+            type="text"
+            value={script.args}
+            onChange={(e) => onChange({ ...script, args: e.target.value })}
+            className="min-w-0 flex-1 bg-stone-800/50 border border-stone-700/50 rounded-lg px-2.5 py-1 text-xs font-mono text-stone-300 placeholder-stone-600 focus:outline-none focus:border-blue-500/50 focus:bg-stone-800 transition-colors"
+            placeholder="Args (hex)"
+          />
+        )}
       </div>
 
-      <div className="flex gap-2">
+      {showRaw && <div className="flex gap-2">
         <input
+          aria-label={`${role} script code hash`}
           type="text"
           value={script.codeHash}
           onChange={(e) => onChange({ ...script, codeHash: e.target.value })}
@@ -58,7 +63,15 @@ export function ScriptSelector({ script, role, onChange }: ScriptSelectorProps) 
           <option value="data1">data1</option>
           <option value="data2">data2</option>
         </select>
-      </div>
+      </div>}
+
+      {!showRaw && (
+        <p className="text-xs leading-5 text-stone-500">
+          {selectedKnown
+            ? selectedKnown.description
+            : `Choose a known ${role} script. Custom hashes are available under Raw structure.`}
+        </p>
+      )}
 
       {showKnown && (
         <div className="border border-stone-700/50 rounded-lg overflow-hidden animate-fade-in">

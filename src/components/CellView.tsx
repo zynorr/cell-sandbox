@@ -1,7 +1,7 @@
 'use client'
 
 import { useSandbox } from '@/store/sandbox'
-import { getScriptColor, formatCapacity } from '@/lib/ccc'
+import { formatCapacity } from '@/lib/ccc'
 
 export function CellView({ index, compact }: { index: number; compact?: boolean }) {
   const cell = useSandbox((s) => s.cells[index])
@@ -11,8 +11,8 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
   if (!cell) return null
 
   const isSelected = selectedIndex === index
-  const outerColor = cell.lock.codeHash ? getScriptColor(cell.lock) : '#44403c'
-  const innerColor = cell.type?.codeHash ? getScriptColor(cell.type) : undefined
+  const lockColor = cell.lock.codeHash ? '#60a5fa' : '#57534e'
+  const typeColor = cell.type?.codeHash ? '#fbbf24' : undefined
   const dataLen = cell.data ? Math.max(0, (cell.data.length - 2) / 2) : 0
 
   const size = compact ? 120 : 172
@@ -24,8 +24,8 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
 
   return (
     <div
-      className={`relative cursor-pointer transition-all duration-300 select-none ${
-        isSelected ? 'scale-110' : 'hover:scale-105'
+      className={`relative cursor-pointer select-none rounded-md transition-colors ${
+        isSelected ? 'bg-white/[0.035]' : 'hover:bg-white/[0.02]'
       }`}
       style={{ width: size, height: size + (compact ? 0 : 4) }}
       onClick={() => setSelectedIndex(index)}
@@ -56,7 +56,7 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
             cy={cy}
             r={size / 2 - 1}
             fill="none"
-            stroke="rgba(59, 130, 246, 0.25)"
+            stroke="rgba(231, 229, 228, 0.3)"
             strokeWidth={2}
           />
         )}
@@ -65,8 +65,8 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
           cx={cx}
           cy={cy}
           r={outerR}
-          fill={isSelected ? `${outerColor}10` : 'none'}
-          stroke={outerColor}
+          fill={isSelected ? 'rgba(96, 165, 250, 0.05)' : 'none'}
+          stroke={lockColor}
           strokeWidth={compact ? 3 : 4}
           opacity={isSelected ? 1 : 0.75}
           filter={isSelected ? `url(#glow-${index})` : undefined}
@@ -77,7 +77,7 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
             x={cx}
             y={cy - outerR - (compact ? 5 : 7)}
             textAnchor="middle"
-            fill={outerColor}
+              fill={lockColor}
             fontSize={compact ? 7 : 9}
             fontWeight={600}
             opacity={0.8}
@@ -86,14 +86,14 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
           </text>
         )}
 
-        {cell.type && innerColor && (
+        {cell.type && typeColor && (
           <>
             <circle
               cx={cx}
               cy={cy}
               r={innerR}
-              fill={isSelected ? `${innerColor}15` : 'none'}
-              stroke={innerColor}
+              fill={isSelected ? 'rgba(251, 191, 36, 0.06)' : 'none'}
+              stroke={typeColor}
               strokeWidth={compact ? 2 : 3}
               opacity={isSelected ? 1 : 0.7}
               filter={isSelected ? `url(#glow-${index})` : undefined}
@@ -102,7 +102,7 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
               x={cx}
               y={cy - innerR - (compact ? 2 : 3)}
               textAnchor="middle"
-              fill={innerColor}
+              fill={typeColor}
               fontSize={compact ? 6 : 8}
               fontWeight={600}
               opacity={0.8}
@@ -116,8 +116,8 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
           cx={cx}
           cy={cy}
           r={centerR}
-          fill={outerColor}
-          opacity={0.08}
+          fill="#34d399"
+          opacity={dataLen > 0 ? 0.16 : 0.06}
         />
 
         <text
@@ -162,13 +162,15 @@ export function CellView({ index, compact }: { index: number; compact?: boolean 
         {cell.lock.codeHash && (
           <span
             className="w-2 h-2 rounded-full border border-stone-900/50"
-            style={{ backgroundColor: outerColor }}
+            title="Lock script"
+            style={{ backgroundColor: lockColor }}
           />
         )}
-        {cell.type && innerColor && (
+        {cell.type && typeColor && (
           <span
             className="w-2 h-2 rounded-full border border-stone-900/50"
-            style={{ backgroundColor: innerColor }}
+            title="Type script"
+            style={{ backgroundColor: typeColor }}
           />
         )}
       </div>

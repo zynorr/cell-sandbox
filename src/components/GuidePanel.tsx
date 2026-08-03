@@ -9,23 +9,23 @@ const GUIDE_STEPS: Array<{
   mode: ViewMode
 }> = [
   {
-    title: 'Learn the Cell shape',
-    body: 'Start with capacity, the required lock script, an optional type script, and output data.',
+    title: 'Take the guided journey',
+    body: 'Open the four Cell layers, follow a state transition, then connect the picture to CCC code.',
     mode: 'learn',
   },
   {
-    title: 'Design or load a Cell',
-    body: 'Create a draft Cell, choose a template, or load one on-chain Cell by outpoint when you want to inspect real structure.',
+    title: 'Explore in Cell Lab',
+    body: 'Begin with a readable example, load an on-chain Cell, or deliberately open the unrestricted blank canvas.',
     mode: 'design',
   },
   {
-    title: 'Inspect a transaction',
+    title: 'Trace a transaction',
     body: 'Paste a transaction hash to compare the Cells referenced by its inputs with the new output Cells it creates.',
     mode: 'inspect',
   },
   {
-    title: 'Build a transaction flow',
-    body: 'Mark draft Cells as outputs to create, then let the wallet supply funding inputs when signing.',
+    title: 'Build and test',
+    body: 'Choose output Cells, validate them, then let CCC and the wallet complete inputs, fee, and change.',
     mode: 'build',
   },
 ]
@@ -48,7 +48,7 @@ export function GuidePanel() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">How to Use</p>
-            <h2 className="mt-1 text-lg font-semibold text-stone-100">Follow the Cell learning path</h2>
+            <h2 className="mt-1 text-lg font-semibold text-stone-100">Choose the next useful step</h2>
           </div>
           <button
             onClick={() => setShowGuide(false)}
